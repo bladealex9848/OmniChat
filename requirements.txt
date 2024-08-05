@@ -1,6 +1,5 @@
 openai
 SQLAlchemy
-mysqlclient
 pymysql
 streamlit
 duckduckgo-search
