@@ -27,20 +27,20 @@ OmniChat ofrece las siguientes capacidades:
 
 OmniChat es una aplicación multi-página desarrollada con Streamlit, que incluye todas las funcionalidades mencionadas.
 
-Accede a la aplicación aquí: [OmniChat en Streamlit](https://omnichat.streamlit.app)
+Accede a la aplicación aquí: [OmniChat en Streamlit](https://omnichat-ai.streamlit.app)
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://omnichat.streamlit.app)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://omnichat-ai.streamlit.app)
 
 ## 🖥️ Ejecución Local
 
 ```
 # Ejecutar la aplicación principal de Streamlit
-$ streamlit run Home.py
+$ streamlit run Inicio.py
 ```
 
 ## 📦 Ejecución con Docker
 ```
-shellCopy# Generar la imagen
+# Generar la imagen
 $ docker build -t omnichat .
 ```
 
