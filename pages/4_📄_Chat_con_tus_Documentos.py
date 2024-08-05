@@ -6,9 +6,9 @@ from streaming import StreamHandler
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 st.set_page_config(page_title="ChatPDF", page_icon="📄")
 st.title('Chatea con tus documentos (RAG Básico)')
@@ -91,14 +91,14 @@ class CustomDataChatbot:
             with st.chat_message("assistant"):
                 st_cb = StreamHandler(st.empty())
                 result = qa_chain.invoke(
-                    {"question":user_query},
+                    {"question": user_query},
                     {"callbacks": [st_cb]}
                 )
                 response = result["answer"]
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
                 # Para mostrar referencias
-                for idx, doc in enumerate(result['source_documents'],1):
+                for idx, doc in enumerate(result['source_documents'], 1):
                     filename = os.path.basename(doc.metadata['source'])
                     page_num = doc.metadata['page']
                     ref_title = f":blue[Reference {idx}: *{filename} - page.{page_num}*]"
