@@ -1,0 +1,15 @@
+openai
+SQLAlchemy
+mysqlclient
+pymysql
+streamlit
+duckduckgo-search
+pypdf
+langchain
+langchain-community
+langchain_core
+langchain_openai
+langchain_text_splitters
+faiss-cpu
+sentence-transformers
+fastembed
