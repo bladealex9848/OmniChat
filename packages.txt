@@ -1,4 +1,2 @@
 pkg-config
 libtk8.6
-libgl1-mesa-glxo 
-libgl1
