@@ -4,6 +4,7 @@ import streamlit as st
 from pathlib import Path
 from sqlalchemy import create_engine
 from urllib.parse import quote_plus
+import pymysql
 
 from langchain_community.agent_toolkits import create_sql_agent
 from langchain_community.callbacks import StreamlitCallbackHandler
@@ -33,7 +34,7 @@ class SqlChatbot:
                 db = SQLDatabase(create_engine("sqlite:///", creator=creator))
             elif isinstance(connection_info, dict):
                 # Construir la URI a partir de los datos del formulario
-                db_uri = f"mysql://{connection_info['user']}:{quote_plus(connection_info['password'])}@{connection_info['host']}:{connection_info['port']}/{connection_info['database']}"
+                db_uri = f"mysql+pymysql://{connection_info['user']}:{quote_plus(connection_info['password'])}@{connection_info['host']}:{connection_info['port']}/{connection_info['database']}"
                 engine = create_engine(db_uri)
                 db = SQLDatabase(engine)
             else:
@@ -49,8 +50,8 @@ class SqlChatbot:
                 # Codificar la contraseña correctamente
                 encoded_password = quote_plus(password)
                 
-                # Reconstruir la URI con la contraseña codificada
-                encoded_uri = f"{scheme}://{user}:{encoded_password}@{host_db}"
+                # Reconstruir la URI con la contraseña codificada y usar pymysql
+                encoded_uri = f"mysql+pymysql://{user}:{encoded_password}@{host_db}"
                 
                 # Crear el engine con la URI codificada
                 engine = create_engine(encoded_uri)
