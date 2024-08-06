@@ -5,6 +5,7 @@ import traceback
 import validators
 import streamlit as st
 from streaming import StreamHandler
+from bs4 import BeautifulSoup
 
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
@@ -12,7 +13,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain_core.documents.base import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import DocArrayInMemorySearch
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 
 # Encabezado en Español
 st.set_page_config(page_title="ChatWebsite", page_icon="🔗")
@@ -28,53 +29,40 @@ class ChatbotWeb:
     def scrape_website(self, url):
         content = ""
         try:
-            base_url = "https://r.jina.ai/"
-            final_url = base_url + url
             headers = {
-                'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:88.0) Gecko/20100101 Firefox/88.0'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
-            response = requests.get(final_url, headers=headers)
-            content = response.text
+            response = requests.get(url, headers=headers)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Extraer texto de párrafos, encabezados y otros elementos relevantes
+            for element in soup.find_all(['p', 'h1', 'h2', 'h3', 'div', 'span']):
+                content += element.get_text() + "\n"
+            
         except Exception as e:
+            st.error(f"Error al obtener contenido de {url}: {str(e)}")
             traceback.print_exc()
         return content
 
     def setup_vectordb(self, websites):
-        # Cargar y analizar documentos
         docs = []
         for url in websites:
-            docs.append(Document(
-                page_content=self.scrape_website(url),
-                metadata={"source":url}
-            ))
+            content = self.scrape_website(url)
+            if content:
+                docs.append(Document(page_content=content, metadata={"source": url}))
+            else:
+                st.warning(f"No se pudo obtener contenido de {url}")
 
-        # Dividir documentos
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200
-        )
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         splits = text_splitter.split_documents(docs)
 
-        # Crear incrustaciones y almacenar en vectordb
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         vectordb = DocArrayInMemorySearch.from_documents(splits, embeddings)
         return vectordb
 
     def setup_qa_chain(self, vectordb):
-        # Definir recuperador
-        retriever = vectordb.as_retriever(
-            search_type='mmr',
-            search_kwargs={'k':2, 'fetch_k':4}
-        )
-
-        # Configurar memoria para conversación contextual
-        memory = ConversationBufferMemory(
-            memory_key='chat_history',
-            output_key='answer',
-            return_messages=True
-        )
-
-        # Configurar cadena de QA
+        retriever = vectordb.as_retriever(search_type='mmr', search_kwargs={'k':2, 'fetch_k':4})
+        memory = ConversationBufferMemory(memory_key='chat_history', output_key='answer', return_messages=True)
         qa_chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
             retriever=retriever,
@@ -86,21 +74,19 @@ class ChatbotWeb:
 
     @utils.enable_chat_history
     def main(self):
-        # Entradas del usuario
         if "websites" not in st.session_state:
             st.session_state["websites"] = []
 
-        web_url = st.sidebar.text_area(
+        web_url = st.sidebar.text_input(
             label='Introduce la URL del sitio web',
-            placeholder="https://",
-            help="Para añadir otro sitio web, modifica este campo después de añadir el sitio web."
+            placeholder="https://ejemplo.com",
+            help="Introduce la URL completa, incluyendo https://"
         )
         if st.sidebar.button(":heavy_plus_sign: Añadir Sitio Web"):
-            valid_url = web_url.startswith('http') and validators.url(web_url)
-            if not valid_url:
-                st.sidebar.error("¡URL inválida! Por favor, revisa la URL del sitio web que has introducido.", icon="⚠️")
-            else:
+            if validators.url(web_url):
                 st.session_state["websites"].append(web_url)
+            else:
+                st.sidebar.error("¡URL inválida! Por favor, introduce una URL completa y válida.", icon="⚠️")
 
         if st.sidebar.button("Limpiar", type="primary"):
             st.session_state["websites"] = []
@@ -108,33 +94,33 @@ class ChatbotWeb:
         websites = list(set(st.session_state["websites"]))
 
         if not websites:
-            st.error("¡Por favor, introduce la URL del sitio web para continuar!")
+            st.error("¡Por favor, introduce al menos una URL de sitio web para continuar!")
             st.stop()
         else:
-            st.sidebar.info("Sitios Web - \n - {}".format('\n - '.join(websites)))
+            st.sidebar.info("Sitios Web:\n" + "\n".join([f"- {url}" for url in websites]))
 
-            vectordb = self.setup_vectordb(websites)
+            with st.spinner("Procesando sitios web..."):
+                vectordb = self.setup_vectordb(websites)
             qa_chain = self.setup_qa_chain(vectordb)
 
-            user_query = st.chat_input(placeholder="¡Hazme una pregunta!")
-            if websites and user_query:
+            user_query = st.chat_input(placeholder="¡Hazme una pregunta sobre los sitios web!")
+            if user_query:
                 utils.display_msg(user_query, 'user')
 
                 with st.chat_message("assistant"):
                     st_cb = StreamHandler(st.empty())
                     result = qa_chain.invoke(
-                        {"question":user_query},
+                        {"question": user_query},
                         {"callbacks": [st_cb]}
                     )
                     response = result["answer"]
                     st.session_state.messages.append({"role": "assistant", "content": response})
 
-                    # Para mostrar referencias
-                    for idx, doc in enumerate(result['source_documents'],1):
-                        url = os.path.basename(doc.metadata['source'])
+                    for idx, doc in enumerate(result['source_documents'], 1):
+                        url = doc.metadata['source']
                         ref_title = f":blue[Referencia {idx}: *{url}*]"
-                        with st.popover(ref_title):
-                            st.caption(doc.page_content)
+                        with st.expander(ref_title):
+                            st.write(doc.page_content)
 
 if __name__ == "__main__":
     obj = ChatbotWeb()

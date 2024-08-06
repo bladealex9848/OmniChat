@@ -16,3 +16,6 @@ docarray==0.40.0
 validators==0.33.0
 pymysql==1.1.0
 requests==2.31.0
+beautifulsoup4==4.12.3
+langchain-huggingface==0.0.7
+pydantic==2.6.1
