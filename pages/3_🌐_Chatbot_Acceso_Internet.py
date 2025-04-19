@@ -50,20 +50,9 @@ class InternetChatbot:
                 description="Útil cuando necesitas responder preguntas sobre eventos actuales. Debes hacer preguntas específicas",
             )
 
-        # Herramienta de búsqueda en Google como respaldo
-        try:
-            from langchain_community.utilities import GoogleSearchAPIWrapper
-
-            google_search = GoogleSearchAPIWrapper()
-            google_tool = Tool(
-                name="GoogleSearch",
-                func=google_search.run,
-                description="Útil para buscar información actualizada en Google cuando otras herramientas fallan.",
-            )
-            tools = [search_tool, google_tool]
-        except Exception:
-            # Si no se puede configurar Google Search, usar solo la herramienta principal
-            tools = [search_tool]
+        # No usamos Google Search API porque requiere API key
+        # En su lugar, usamos métodos de scraping gratuitos implementados en search_utils.py
+        tools = [search_tool]
 
         # Get the prompt - can modify this
         prompt = hub.pull("hwchase17/react-chat")
@@ -82,43 +71,32 @@ class InternetChatbot:
         with st.sidebar.expander("ℹ️ Información sobre búsquedas"):
             st.markdown(
                 """
-            ### Herramientas de búsqueda
+            ### Herramientas de búsqueda gratuitas
 
-            Este chatbot utiliza múltiples herramientas de búsqueda con un sistema de respaldo:
+            Este chatbot utiliza múltiples herramientas de búsqueda gratuitas con un sistema de respaldo:
 
             1. **DuckDuckGo** (principal)
-            2. **Serper.dev** (respaldo, requiere API key)
-            3. **SerpAPI** (respaldo, requiere API key)
-            4. **Scraping directo** (respaldo final)
-            5. **Google Search API** (opcional, requiere configuración)
+            2. **Google** (respaldo mediante scraping)
+            3. **Bing** (respaldo mediante scraping)
+            4. **DuckDuckGo HTML** (respaldo final mediante scraping)
 
             Si experimentas errores de "rate limit", el sistema intentará usar automáticamente los métodos alternativos.
+
+            > **Nota**: Todos los métodos de búsqueda son gratuitos y no requieren API keys.
             """
             )
 
-            # Configuración opcional de API keys para servicios de respaldo
-            st.subheader("API Keys opcionales")
-            st.caption(
-                "Puedes añadir estas claves para mejorar las búsquedas de respaldo"
+            # Consejos para mejorar las búsquedas
+            st.subheader("Consejos para mejorar las búsquedas")
+            st.markdown(
+                """
+            - Haz preguntas específicas y concretas
+            - Incluye fechas, nombres completos y detalles relevantes
+            - Evita preguntas muy generales
+            - Si recibes un error de límite de tasa, espera unos minutos e intenta de nuevo
+            - Reformula tu pregunta si no obtienes resultados satisfactorios
+            """
             )
-
-            serper_key = st.text_input(
-                "Serper.dev API Key",
-                type="password",
-                placeholder="Opcional - Obtener en serper.dev",
-                help="Obtener en https://serper.dev",
-            )
-            if serper_key:
-                st.session_state["SERPER_API_KEY"] = serper_key
-
-            serpapi_key = st.text_input(
-                "SerpAPI Key",
-                type="password",
-                placeholder="Opcional - Obtener en serpapi.com",
-                help="Obtener en https://serpapi.com",
-            )
-            if serpapi_key:
-                st.session_state["SERPAPI_API_KEY"] = serpapi_key
 
         # Configurar el agente con manejo de errores
         try:

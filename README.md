@@ -13,7 +13,7 @@ OmniChat ofrece las siguientes capacidades:
 - **Chatbot Consciente del Contexto**:
   Un asistente que recuerda conversaciones previas y proporciona respuestas acordes.
 - **Chatbot con Acceso a Internet**:
-  Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes. Incluye sistema de respaldo para búsquedas cuando DuckDuckGo alcanza límites de tasa.
+  Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes. Incluye sistema de respaldo gratuito (sin API keys) para búsquedas cuando DuckDuckGo alcanza límites de tasa.
 - **Chat con Documentos**:
   Permite al chatbot acceder a documentos personalizados, respondiendo preguntas basadas en la información contenida.
 - **Chat con Base de Datos SQL**:
