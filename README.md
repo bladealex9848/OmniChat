@@ -8,16 +8,22 @@ OmniChat es un asistente virtual versátil desarrollado con Langchain y Streamli
 
 OmniChat ofrece las siguientes capacidades:
 
-- **Chatbot Básico**: 
+- **Chatbot Básico**:
   Mantén conversaciones interactivas con el LLM.
-- **Chatbot Consciente del Contexto**: 
+- **Chatbot Consciente del Contexto**:
   Un asistente que recuerda conversaciones previas y proporciona respuestas acordes.
-- **Chat con Documentos**: 
+- **Chatbot con Acceso a Internet**:
+  Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes.
+- **Chat con Documentos**:
   Permite al chatbot acceder a documentos personalizados, respondiendo preguntas basadas en la información contenida.
-- **Chat con Base de Datos SQL**: 
+- **Chat con Base de Datos SQL**:
   Interactúa con bases de datos SQL mediante comandos conversacionales simples.
-- **Chat con Sitios Web**: 
+- **Chat con Sitios Web**:
   Permite al chatbot interactuar con contenidos de sitios web.
+- **Chat Multimodal con OpenRouter**:
+  Analiza imágenes y responde preguntas sobre ellas usando modelos multimodales gratuitos de OpenRouter.
+- **OCR con Mistral AI**:
+  Extrae texto de imágenes y documentos PDF utilizando la API de OCR de Mistral AI.
 
 ## <img src="https://streamlit.io/images/brand/streamlit-mark-color.png" width="40" height="22"> Aplicación Streamlit
 
@@ -29,27 +35,27 @@ Accede a la aplicación aquí: [OmniChat en Streamlit](https://omnichat-ai.strea
 
 ## 🖥️ Requisitos
 
-- Python 3.10
+- Python 3.13
 
-## 🛠️ Configuración del Entorno Virtual (Python 3.10)
+## 🛠️ Configuración del Entorno Virtual (Python 3.13)
 
-**1. Instalación de Python 3.10:**
+**1. Instalación de Python 3.13:**
 
 * **Windows:**
-  - Descarga el instalador de Python 3.10 desde [https://www.python.org/downloads/release/python-3109/](https://www.python.org/downloads/release/python-3109/) y asegúrate de marcar la casilla "Add Python 3.10 to PATH".
+  - Descarga el instalador de Python 3.13 desde [https://www.python.org/downloads/windows/](https://www.python.org/downloads/windows/) y asegúrate de marcar la casilla "Add Python 3.13 to PATH".
 * **macOS (usando Homebrew):**
   - Instala Homebrew si aún no lo tienes: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
-  - Luego instala Python 3.10: `brew install python@3.10`
+  - Luego instala Python 3.10: `brew install python@3.13`
 * **Linux (usando el gestor de paquetes de tu distribución):**
-  - Ejemplo para Debian/Ubuntu: `sudo apt-get install python3.10 python3.10-venv`
+  - Ejemplo para Debian/Ubuntu: `sudo apt-get install python3.13 python3.13-venv`
 
 **2. Creación y Activación del Entorno Virtual:**
 
 * Abre una terminal en la carpeta de tu proyecto.
-* Crea el entorno virtual: `python3.10 -m venv mi_entorno_310`
+* Crea el entorno virtual: `python -m venv venv`
 * Activa el entorno virtual:
-    - Windows: `mi_entorno_310\Scripts\activate`
-    - macOS/Linux: `source mi_entorno_310/bin/activate`
+    - Windows: `venv\Scripts\activate`
+    - macOS/Linux: `source venv/bin/activate`
 
 **3. Actualización de pip:**
 
@@ -63,10 +69,27 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+**5. Configuración de Claves API:**
+
+Algunas funcionalidades requieren claves API para funcionar. Crea un archivo `.streamlit/secrets.toml` basado en el archivo de ejemplo `secrets.toml.example`:
+
+```
+# Copia el archivo de ejemplo
+cp secrets.toml.example .streamlit/secrets.toml
+
+# Edita el archivo con tus claves API
+# Reemplaza los valores de ejemplo con tus propias claves
+```
+
+Las claves API necesarias son:
+- **OPENAI_API_KEY**: Para los chatbots basados en OpenAI
+- **OPENROUTER_API_KEY**: Para el chat multimodal con OpenRouter
+- **MISTRAL_API_KEY**: Para OCR y procesamiento de documentos
+
 # 🖥️ Ejecución Local
 ## Ejecutar la aplicación principal de Streamlit
 ```
-$ python3 -m streamlit run Inicio.py # Si tienes Python 3.10 instalado en un entorno virtual
+$ python -m streamlit run Inicio.py # Si tienes Python 3.13 instalado en un entorno virtual
 ```
 ```
 $ streamlit run Inicio.py # Si tienes Streamlit instalado globalmente

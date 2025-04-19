@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#1976D2" rx="20" ry="20"/>
+  <text x="100" y="120" font-family="Arial" font-size="80" font-weight="bold" text-anchor="middle" fill="white">OCR</text>
+  <text x="100" y="150" font-family="Arial" font-size="24" font-weight="normal" text-anchor="middle" fill="white">Mistral</text>
+</svg>
