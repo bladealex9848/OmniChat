@@ -1,4 +1,8 @@
 import os
+import sys
+
+# Añadir el directorio raíz al path para poder importar utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import utils
 import requests
 import traceback
@@ -17,8 +21,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 # Encabezado en Español
 st.set_page_config(page_title="ChatWebsite", page_icon="🔗")
-st.title('Chatea con Sitios Web')
-st.write('Permite al chatbot interactuar con el contenido de los sitios web.')
+st.title("Chatea con Sitios Web")
+st.write("Permite al chatbot interactuar con el contenido de los sitios web.")
+
 
 class ChatbotWeb:
 
@@ -30,15 +35,15 @@ class ChatbotWeb:
         content = ""
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             }
             response = requests.get(url, headers=headers)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
+            soup = BeautifulSoup(response.content, "html.parser")
+
             # Extraer texto de párrafos, encabezados y otros elementos relevantes
-            for element in soup.find_all(['p', 'h1', 'h2', 'h3', 'div', 'span']):
+            for element in soup.find_all(["p", "h1", "h2", "h3", "div", "span"]):
                 content += element.get_text() + "\n"
-            
+
         except Exception as e:
             st.error(f"Error al obtener contenido de {url}: {str(e)}")
             traceback.print_exc()
@@ -53,22 +58,30 @@ class ChatbotWeb:
             else:
                 st.warning(f"No se pudo obtener contenido de {url}")
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, chunk_overlap=200
+        )
         splits = text_splitter.split_documents(docs)
 
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
         vectordb = DocArrayInMemorySearch.from_documents(splits, embeddings)
         return vectordb
 
     def setup_qa_chain(self, vectordb):
-        retriever = vectordb.as_retriever(search_type='mmr', search_kwargs={'k':2, 'fetch_k':4})
-        memory = ConversationBufferMemory(memory_key='chat_history', output_key='answer', return_messages=True)
+        retriever = vectordb.as_retriever(
+            search_type="mmr", search_kwargs={"k": 2, "fetch_k": 4}
+        )
+        memory = ConversationBufferMemory(
+            memory_key="chat_history", output_key="answer", return_messages=True
+        )
         qa_chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
             retriever=retriever,
             memory=memory,
             return_source_documents=True,
-            verbose=True
+            verbose=True,
         )
         return qa_chain
 
@@ -78,49 +91,60 @@ class ChatbotWeb:
             st.session_state["websites"] = []
 
         web_url = st.sidebar.text_input(
-            label='Introduce la URL del sitio web',
+            label="Introduce la URL del sitio web",
             placeholder="https://ejemplo.com",
-            help="Introduce la URL completa, incluyendo https://"
+            help="Introduce la URL completa, incluyendo https://",
         )
         if st.sidebar.button(":heavy_plus_sign: Añadir Sitio Web"):
             if validators.url(web_url):
                 st.session_state["websites"].append(web_url)
             else:
-                st.sidebar.error("¡URL inválida! Por favor, introduce una URL completa y válida.", icon="⚠️")
+                st.sidebar.error(
+                    "¡URL inválida! Por favor, introduce una URL completa y válida.",
+                    icon="⚠️",
+                )
 
         if st.sidebar.button("Limpiar", type="primary"):
             st.session_state["websites"] = []
-        
+
         websites = list(set(st.session_state["websites"]))
 
         if not websites:
-            st.error("¡Por favor, introduce al menos una URL de sitio web para continuar!")
+            st.error(
+                "¡Por favor, introduce al menos una URL de sitio web para continuar!"
+            )
             st.stop()
         else:
-            st.sidebar.info("Sitios Web:\n" + "\n".join([f"- {url}" for url in websites]))
+            st.sidebar.info(
+                "Sitios Web:\n" + "\n".join([f"- {url}" for url in websites])
+            )
 
             with st.spinner("Procesando sitios web..."):
                 vectordb = self.setup_vectordb(websites)
             qa_chain = self.setup_qa_chain(vectordb)
 
-            user_query = st.chat_input(placeholder="¡Hazme una pregunta sobre los sitios web!")
+            user_query = st.chat_input(
+                placeholder="¡Hazme una pregunta sobre los sitios web!"
+            )
             if user_query:
-                utils.display_msg(user_query, 'user')
+                utils.display_msg(user_query, "user")
 
                 with st.chat_message("assistant"):
                     st_cb = StreamHandler(st.empty())
                     result = qa_chain.invoke(
-                        {"question": user_query},
-                        {"callbacks": [st_cb]}
+                        {"question": user_query}, {"callbacks": [st_cb]}
                     )
                     response = result["answer"]
-                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response}
+                    )
 
-                    for idx, doc in enumerate(result['source_documents'], 1):
-                        url = doc.metadata['source']
+                    for idx, doc in enumerate(result["source_documents"], 1):
+                        url = doc.metadata["source"]
                         ref_title = f":blue[Referencia {idx}: *{url}*]"
                         with st.expander(ref_title):
                             st.write(doc.page_content)
+
 
 if __name__ == "__main__":
     obj = ChatbotWeb()

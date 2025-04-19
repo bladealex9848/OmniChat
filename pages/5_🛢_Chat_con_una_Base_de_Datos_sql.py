@@ -1,3 +1,8 @@
+import sys
+import os
+
+# Añadir el directorio raíz al path para poder importar utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import utils
 import sqlite3
 import streamlit as st
@@ -12,8 +17,11 @@ from langchain_community.utilities.sql_database import SQLDatabase
 
 # Configuración de la página
 st.set_page_config(page_title="ChatSQL", page_icon="🛢")
-st.title('Chatea con base de datos SQL')
-st.write('Permite al chatbot interactuar con una base de datos SQL a través de comandos simples y conversacionales.')
+st.title("Chatea con base de datos SQL")
+st.write(
+    "Permite al chatbot interactuar con una base de datos SQL a través de comandos simples y conversacionales."
+)
+
 
 class SqlChatbot:
 
@@ -27,10 +35,14 @@ class SqlChatbot:
 
     def setup_db(self, connection_info):
         try:
-            if connection_info == 'USE_SAMPLE_DB':
-                db_filepath = (Path(__file__).parent.parent / "assets/Chinook.db").absolute()
+            if connection_info == "USE_SAMPLE_DB":
+                db_filepath = (
+                    Path(__file__).parent.parent / "assets/Chinook.db"
+                ).absolute()
                 db_uri = f"sqlite:////{db_filepath}"
-                creator = lambda: sqlite3.connect(f"file:{db_filepath}?mode=ro", uri=True)
+                creator = lambda: sqlite3.connect(
+                    f"file:{db_filepath}?mode=ro", uri=True
+                )
                 db = SQLDatabase(create_engine("sqlite:///", creator=creator))
             elif isinstance(connection_info, dict):
                 # Construir la URI a partir de los datos del formulario
@@ -39,26 +51,26 @@ class SqlChatbot:
                 db = SQLDatabase(engine)
             else:
                 # Parsear la URI de conexión manualmente
-                parts = connection_info.split('://')
+                parts = connection_info.split("://")
                 if len(parts) != 2:
                     raise ValueError("Formato de URI de base de datos inválido")
-                
+
                 scheme, rest = parts
-                user_pass, host_db = rest.split('@', 1)
-                user, password = user_pass.split(':', 1)
-                
+                user_pass, host_db = rest.split("@", 1)
+                user, password = user_pass.split(":", 1)
+
                 # Codificar la contraseña correctamente
                 encoded_password = quote_plus(password)
-                
+
                 # Reconstruir la URI con la contraseña codificada y usar pymysql
                 encoded_uri = f"mysql+pymysql://{user}:{encoded_password}@{host_db}"
-                
+
                 # Crear el engine con la URI codificada
                 engine = create_engine(encoded_uri)
                 db = SQLDatabase(engine)
-            
-            with st.sidebar.expander('Tablas de la base de datos', expanded=True):
-                st.info('\n- '+'\n- '.join(db.get_usable_table_names()))
+
+            with st.sidebar.expander("Tablas de la base de datos", expanded=True):
+                st.info("\n- " + "\n- ".join(db.get_usable_table_names()))
             return db
         except Exception as e:
             st.error(f"Error al configurar la base de datos: {str(e)}")
@@ -73,7 +85,7 @@ class SqlChatbot:
                 verbose=True,
                 agent_type="openai-tools",
                 handle_parsing_errors=True,
-                handle_sql_errors=True
+                handle_sql_errors=True,
             )
             return agent
         except Exception as e:
@@ -82,24 +94,28 @@ class SqlChatbot:
 
     @utils.enable_chat_history
     def main(self):
-        radio_opt = ['Usar base de datos de ejemplo - Chinook.db', 'Conectar a tu base de datos SQL']
+        radio_opt = [
+            "Usar base de datos de ejemplo - Chinook.db",
+            "Conectar a tu base de datos SQL",
+        ]
         selected_opt = st.sidebar.radio(
-            label='Elige la opción adecuada',
-            options=radio_opt
+            label="Elige la opción adecuada", options=radio_opt
         )
-        
-        connection_info = 'USE_SAMPLE_DB'
+
+        connection_info = "USE_SAMPLE_DB"
         if radio_opt.index(selected_opt) == 1:
-            with st.sidebar.popover(':orange[⚠️ Nota de seguridad]', use_container_width=True):
+            with st.sidebar.popover(
+                ":orange[⚠️ Nota de seguridad]", use_container_width=True
+            ):
                 warning = "Construir sistemas de preguntas y respuestas de bases de datos SQL requiere ejecutar consultas SQL generadas por el modelo. Hay riesgos inherentes en hacer esto. Asegúrese de que los permisos de conexión a la base de datos estén siempre tan limitados como sea posible para las necesidades de su cadena/agente.\n\nPara obtener más información sobre las mejores prácticas de seguridad en general - [lea esto](https://python.langchain.com/docs/security)."
                 st.warning(warning)
-            
+
             connection_method = st.sidebar.radio("Método de conexión", ["Formulario"])
-            
+
             if connection_method == "URL":
                 connection_info = st.sidebar.text_input(
-                    label='Database URI',
-                    placeholder='mysql://user:pass@hostname:port/db'
+                    label="Database URI",
+                    placeholder="mysql://user:pass@hostname:port/db",
                 )
             else:
                 connection_info = {
@@ -107,17 +123,17 @@ class SqlChatbot:
                     "port": st.sidebar.text_input("Puerto", "3306"),
                     "user": st.sidebar.text_input("Usuario", "root"),
                     "password": st.sidebar.text_input("Contraseña", type="password"),
-                    "database": st.sidebar.text_input("Nombre de la base de datos")
+                    "database": st.sidebar.text_input("Nombre de la base de datos"),
                 }
-        
+
         if not connection_info:
             st.error("¡Por favor, introduce la información de conexión para continuar!")
             st.stop()
-        
+
         db = self.setup_db(connection_info)
         if db is None:
             st.stop()
-        
+
         agent = self.setup_sql_agent(db)
         if agent is None:
             st.stop()
@@ -131,15 +147,15 @@ class SqlChatbot:
             with st.chat_message("assistant"):
                 st_cb = StreamlitCallbackHandler(st.container())
                 try:
-                    result = agent.invoke(
-                        {"input": user_query},
-                        {"callbacks": [st_cb]}
-                    )
+                    result = agent.invoke({"input": user_query}, {"callbacks": [st_cb]})
                     response = result["output"]
-                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response}
+                    )
                     st.write(response)
                 except Exception as e:
                     st.error(f"Error al procesar la consulta: {str(e)}")
+
 
 if __name__ == "__main__":
     try:
