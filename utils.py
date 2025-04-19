@@ -155,10 +155,36 @@ def sync_st_session():
 def get_openrouter_free_models() -> List[Dict[str, Any]]:
     """
     Obtiene la lista de modelos multimodales gratuitos disponibles en OpenRouter
+    o modelos que tengan "free" en su nombre o descripción.
 
     Returns:
         List[Dict[str, Any]]: Lista de modelos con sus detalles
     """
+    # Lista de modelos por defecto conocidos por ser gratuitos o tener versiones gratuitas
+    default_models = [
+        {
+            "id": "anthropic/claude-3-haiku:beta",
+            "name": "Claude 3 Haiku (Multimodal)",
+            "description": "Modelo multimodal rápido y eficiente de Anthropic",
+            "context_length": 200000,
+            "multimodal": True,
+        },
+        {
+            "id": "google/gemini-pro-vision",
+            "name": "Gemini Pro Vision",
+            "description": "Modelo multimodal de Google con capacidades visuales",
+            "context_length": 16000,
+            "multimodal": True,
+        },
+        {
+            "id": "mistralai/mistral-large-latest",
+            "name": "Mistral Large",
+            "description": "Modelo potente de Mistral AI",
+            "context_length": 32000,
+            "multimodal": False,
+        },
+    ]
+
     try:
         # Intentar obtener la API key de OpenRouter
         api_key = None
@@ -168,7 +194,7 @@ def get_openrouter_free_models() -> List[Dict[str, Any]]:
             api_key = os.environ.get("OPENROUTER_API_KEY")
 
         if not api_key:
-            return []
+            return default_models  # Devolver modelos por defecto si no hay API key
 
         # Hacer la solicitud a la API de OpenRouter
         headers = {
@@ -181,17 +207,34 @@ def get_openrouter_free_models() -> List[Dict[str, Any]]:
         if response.status_code == 200:
             models_data = response.json()
 
-            # Filtrar modelos multimodales gratuitos
+            # Filtrar modelos multimodales gratuitos o con "free" en su nombre/descripción
             free_multimodal_models = []
             for model in models_data.get("data", []):
                 context_length = model.get("context_length", 0)
                 pricing = model.get("pricing", {})
-                is_free = (
+                model_name = model.get("name", "").lower()
+                model_description = model.get("description", "").lower()
+                model_id = model.get("id", "").lower()
+
+                # Verificar si es gratuito según pricing
+                is_free_pricing = (
                     pricing.get("prompt", 1) == 0 and pricing.get("completion", 1) == 0
                 )
+
+                # Verificar si tiene "free" en el nombre, descripción o ID
+                has_free_in_name = "free" in model_name
+                has_free_in_description = "free" in model_description
+                has_free_in_id = "free" in model_id
+
                 is_multimodal = model.get("multimodal", False)
 
-                if is_multimodal and is_free:
+                # Incluir si es multimodal Y (es gratuito según pricing O tiene "free" en su nombre/descripción/id)
+                if is_multimodal and (
+                    is_free_pricing
+                    or has_free_in_name
+                    or has_free_in_description
+                    or has_free_in_id
+                ):
                     free_multimodal_models.append(
                         {
                             "id": model.get("id"),
@@ -202,20 +245,24 @@ def get_openrouter_free_models() -> List[Dict[str, Any]]:
                         }
                     )
 
+            # Si no encontramos modelos gratuitos, devolver los modelos por defecto
+            if not free_multimodal_models:
+                return default_models
+
             return free_multimodal_models
         else:
             st.warning(
                 f"Error al obtener modelos de OpenRouter: {response.status_code}"
             )
-            return []
+            return default_models  # Devolver modelos por defecto en caso de error
     except Exception as e:
         st.warning(f"Error al conectar con OpenRouter: {str(e)}")
-        return []
+        return default_models  # Devolver modelos por defecto en caso de excepción
 
 
 def configure_openrouter_client():
     """
-    Configura un cliente para OpenRouter
+    Configura un cliente para OpenRouter con manejo de errores y recuperación
 
     Returns:
         tuple: (api_key, model_id)
@@ -240,22 +287,62 @@ def configure_openrouter_client():
         st.info("Obtén tu clave en: https://openrouter.ai/keys")
         st.stop()
 
-    # Obtener modelos disponibles
+    # Obtener modelos disponibles (siempre devuelve al menos los modelos por defecto)
     free_models = get_openrouter_free_models()
 
-    if not free_models:
-        st.warning("No se encontraron modelos multimodales gratuitos en OpenRouter.")
-        # Usar un modelo por defecto
-        model_id = "anthropic/claude-3-haiku:beta"
+    # Filtrar solo modelos multimodales
+    multimodal_models = [
+        model for model in free_models if model.get("multimodal", False)
+    ]
+
+    # Si no hay modelos multimodales, mostrar un mensaje pero usar los modelos disponibles
+    if not multimodal_models:
+        st.info(
+            "No se encontraron modelos multimodales. Usando modelos de texto disponibles."
+        )
+        available_models = free_models
     else:
-        # Mostrar selector de modelos
-        model_options = {model["name"]: model["id"] for model in free_models}
+        available_models = multimodal_models
+
+    # Crear opciones para el selector
+    model_options = {}
+    for model in available_models:
+        # Añadir indicador de multimodal y gratuito al nombre para mejor claridad
+        name = model["name"]
+        if model.get("multimodal", False):
+            name += " 🖼️"
+        if "free" in name.lower() or "free" in model.get("description", "").lower():
+            name += " (Free)"
+        model_options[name] = model["id"]
+
+    # Mostrar selector de modelos con manejo de errores
+    try:
         selected_name = st.sidebar.selectbox(
-            "Modelo Multimodal",
+            "Modelo de OpenRouter",
             options=list(model_options.keys()),
             key="SELECTED_OPENROUTER_MODEL",
+            help="Selecciona un modelo. Los modelos con 🖼️ soportan imágenes.",
         )
-        model_id = model_options.get(selected_name, free_models[0]["id"])
+        model_id = model_options.get(selected_name)
+    except Exception as e:
+        # En caso de error, usar el primer modelo disponible
+        st.warning(f"Error al seleccionar modelo: {str(e)}. Usando modelo por defecto.")
+        model_id = available_models[0]["id"]
+
+    # Mostrar información sobre el modelo seleccionado
+    selected_model = next((m for m in available_models if m["id"] == model_id), None)
+    if selected_model:
+        with st.sidebar.expander("Información del modelo"):
+            st.write(f"**ID:** {selected_model['id']}")
+            st.write(
+                f"**Descripción:** {selected_model.get('description', 'No disponible')}"
+            )
+            st.write(
+                f"**Longitud de contexto:** {selected_model.get('context_length', 'No disponible')}"
+            )
+            st.write(
+                f"**Multimodal:** {'Sí' if selected_model.get('multimodal', False) else 'No'}"
+            )
 
     return api_key, model_id
 

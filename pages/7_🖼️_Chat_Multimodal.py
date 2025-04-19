@@ -24,19 +24,77 @@ class MultimodalChatbot:
         self.setup_openrouter_client()
 
     def setup_openrouter_client(self):
-        """Configura el cliente de OpenRouter para chat multimodal"""
-        # Obtener API key y modelo de OpenRouter
-        self.api_key, self.model_id = utils.configure_openrouter_client()
+        """Configura el cliente de OpenRouter para chat multimodal con manejo de errores"""
+        try:
+            # Obtener API key y modelo de OpenRouter
+            self.api_key, self.model_id = utils.configure_openrouter_client()
 
-        # Crear cliente de OpenAI pero con la base_url de OpenRouter
-        self.client = openai.OpenAI(
-            api_key=self.api_key,
-            base_url="https://openrouter.ai/api/v1",
-            default_headers={
-                "HTTP-Referer": "https://github.com/bladealex9848/OmniChat",
-                "X-Title": "OmniChat",
-            },
-        )
+            # Verificar si el modelo seleccionado es multimodal
+            if not self._is_model_multimodal(self.model_id):
+                st.sidebar.warning(
+                    f"El modelo seleccionado ({self.model_id}) puede no ser multimodal. "
+                    "Las imágenes podrían no procesarse correctamente."
+                )
+                st.sidebar.info(
+                    "Recomendación: Selecciona un modelo con el icono 🖼️ que indica soporte para imágenes."
+                )
+
+            # Crear cliente de OpenAI pero con la base_url de OpenRouter
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                base_url="https://openrouter.ai/api/v1",
+                default_headers={
+                    "HTTP-Referer": "https://github.com/bladealex9848/OmniChat",
+                    "X-Title": "OmniChat",
+                },
+            )
+        except Exception as e:
+            st.error(f"Error al configurar OpenRouter: {str(e)}")
+            st.info("Usando configuración alternativa con modelo por defecto.")
+
+            # Configuración de respaldo
+            if hasattr(st, "secrets") and "OPENROUTER_API_KEY" in st.secrets:
+                self.api_key = st.secrets["OPENROUTER_API_KEY"]
+            else:
+                self.api_key = "DEMO"  # OpenRouter permite algunas llamadas con DEMO
+
+            self.model_id = "anthropic/claude-3-haiku:beta"  # Modelo por defecto
+
+            # Crear cliente con configuración de respaldo
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                base_url="https://openrouter.ai/api/v1",
+                default_headers={
+                    "HTTP-Referer": "https://github.com/bladealex9848/OmniChat",
+                    "X-Title": "OmniChat",
+                },
+            )
+
+    def _is_model_multimodal(self, model_id):
+        """Verifica si un modelo es multimodal basándose en su ID o en la lista de modelos conocidos"""
+        # Lista de modelos conocidos por ser multimodales
+        known_multimodal_models = [
+            "anthropic/claude-3-haiku",
+            "anthropic/claude-3-opus",
+            "anthropic/claude-3-sonnet",
+            "google/gemini-pro-vision",
+            "openai/gpt-4-vision",
+            "openai/gpt-4o",
+        ]
+
+        # Verificar si el ID del modelo contiene alguno de los modelos conocidos
+        for known_model in known_multimodal_models:
+            if known_model in model_id.lower():
+                return True
+
+        # Verificar si el modelo tiene palabras clave que indican capacidad multimodal
+        multimodal_keywords = ["vision", "image", "visual", "multimodal"]
+        for keyword in multimodal_keywords:
+            if keyword in model_id.lower():
+                return True
+
+        # Por defecto, asumir que no es multimodal si no podemos confirmarlo
+        return False
 
     def encode_image_to_base64(self, image_file):
         """Convierte una imagen a base64 para enviarla a la API"""
@@ -64,15 +122,115 @@ class MultimodalChatbot:
                 }
             ]
 
-            # Llamar a la API de OpenRouter
-            response = self.client.chat.completions.create(
-                model=self.model_id, messages=messages, max_tokens=1000, stream=True
-            )
+            # Mostrar indicador de procesamiento
+            with st.status("Procesando imagen...", expanded=False) as status:
+                # Llamar a la API de OpenRouter
+                response = self.client.chat.completions.create(
+                    model=self.model_id, messages=messages, max_tokens=1000, stream=True
+                )
+                status.update(label="¡Imagen procesada!", state="complete")
+                return response
 
-            return response
+        except openai.BadRequestError as e:
+            # Error específico de formato o capacidad del modelo
+            error_msg = str(e)
+            if "multimodal" in error_msg.lower() or "image" in error_msg.lower():
+                st.error("El modelo seleccionado no soporta procesamiento de imágenes.")
+                st.info("Intentando con un modelo alternativo...")
+
+                # Intentar con un modelo alternativo conocido por ser multimodal
+                try:
+                    backup_model = "anthropic/claude-3-haiku:beta"
+                    st.info(f"Usando modelo de respaldo: {backup_model}")
+
+                    response = self.client.chat.completions.create(
+                        model=backup_model,
+                        messages=messages,
+                        max_tokens=1000,
+                        stream=True,
+                    )
+                    return response
+                except Exception as backup_error:
+                    st.error(f"Error con el modelo de respaldo: {str(backup_error)}")
+            else:
+                st.error(f"Error en la solicitud: {error_msg}")
+
+            # Proporcionar una respuesta alternativa
+            return self._generate_fallback_response(prompt, image_file)
+
+        except openai.RateLimitError:
+            st.warning(
+                "Se ha alcanzado el límite de solicitudes. Intentando con un modelo alternativo..."
+            )
+            # Intentar con un modelo alternativo o proporcionar una respuesta alternativa
+            return self._generate_fallback_response(prompt, image_file)
 
         except Exception as e:
             st.error(f"Error al procesar la imagen: {str(e)}")
+            # Proporcionar una respuesta alternativa
+            return self._generate_fallback_response(prompt, image_file)
+
+    def _generate_fallback_response(self, prompt, image_file):
+        """Genera una respuesta alternativa cuando falla el procesamiento de la imagen"""
+        try:
+            # Crear una respuesta simulada para no interrumpir la experiencia del usuario
+            class FallbackResponse:
+                def __init__(self, prompt):
+                    self.prompt = prompt
+                    self.choices = [self.Choice()]
+
+                class Choice:
+                    def __init__(self):
+                        self.delta = self.Delta()
+
+                    class Delta:
+                        def __init__(self):
+                            self.content = None
+
+            # Crear un generador que simule la respuesta streaming
+            def fallback_generator():
+                # Mensaje inicial
+                response = FallbackResponse(prompt)
+                response.choices[0].delta.content = (
+                    "Lo siento, no puedo procesar esta imagen en este momento. "
+                )
+                yield response
+
+                # Mensaje de explicación
+                response = FallbackResponse(prompt)
+                response.choices[0].delta.content = (
+                    "Estoy experimentando dificultades técnicas con el servicio de procesamiento de imágenes. "
+                )
+                yield response
+
+                # Sugerencia basada en el prompt
+                response = FallbackResponse(prompt)
+                if "describe" in prompt.lower():
+                    response.choices[0].delta.content = (
+                        "Para describir mejor la imagen, por favor intenta con un modelo diferente o proporciona más detalles sobre lo que estás viendo. "
+                    )
+                elif "analiza" in prompt.lower() or "analizar" in prompt.lower():
+                    response.choices[0].delta.content = (
+                        "Para analizar la imagen, necesitaría poder procesarla correctamente. Por favor, intenta con un modelo diferente. "
+                    )
+                else:
+                    response.choices[0].delta.content = (
+                        "Para responder a tu pregunta sobre la imagen, necesitaría poder procesarla correctamente. "
+                    )
+                yield response
+
+                # Mensaje final
+                response = FallbackResponse(prompt)
+                response.choices[0].delta.content = (
+                    "Te recomiendo seleccionar un modelo con el icono 🖼️ que indica soporte para imágenes."
+                )
+                yield response
+
+            return fallback_generator()
+
+        except Exception as e:
+            # Si todo falla, devolver None y dejar que el código principal maneje el error
+            st.error(f"Error al generar respuesta alternativa: {str(e)}")
             return None
 
     @utils.enable_chat_history
