@@ -11,11 +11,38 @@ from io import BytesIO
 import base64
 import openai
 
-st.set_page_config(page_title="Chat Multimodal", page_icon="🖼️")
-st.title("Chat Multimodal con OpenRouter")
+st.set_page_config(page_title="Chat Multimodal Gratuito", page_icon="🖼️")
+st.title("Chat Multimodal con Modelos Gratuitos")
 st.write(
-    "Permite al chatbot analizar imágenes y responder preguntas sobre ellas usando modelos multimodales gratuitos de OpenRouter."
+    """
+    Permite al chatbot analizar imágenes y responder preguntas sobre ellas usando **exclusivamente modelos multimodales gratuitos** de OpenRouter.
+
+    > **Nota:** En esta página solo se muestran modelos multimodales gratuitos o que tengan "free" en su nombre.
+    > En otras páginas de la aplicación podrás ver todos los modelos gratuitos disponibles.
+    """
 )
+
+# Mostrar información sobre los modelos disponibles
+with st.expander("Ver modelos multimodales gratuitos disponibles"):
+    st.markdown(
+        """
+    ### Modelos multimodales gratuitos disponibles
+
+    Esta aplicación utiliza una amplia variedad de modelos multimodales gratuitos, incluyendo:
+
+    - **Meta Llama 4 Maverick/Scout**: Modelos multimodales de Meta con capacidades avanzadas de visión y razonamiento.
+    - **Qwen 2.5 VL**: Modelos multimodales de Qwen con soporte para visión y múltiples idiomas.
+    - **Google Gemini**: Modelos de Google con capacidades multimodales y razonamiento avanzado.
+    - **Claude 3 Haiku**: Modelo multimodal rápido y eficiente de Anthropic.
+    - **GPT-4o Mini**: Versión gratuita del modelo multimodal de OpenAI.
+
+    Todos estos modelos son completamente gratuitos para usar y no requieren pago alguno.
+    """
+    )
+
+    st.info(
+        "Los modelos disponibles pueden variar según la disponibilidad en OpenRouter. La aplicación siempre seleccionará automáticamente modelos gratuitos."
+    )
 
 
 class MultimodalChatbot:
@@ -26,8 +53,10 @@ class MultimodalChatbot:
     def setup_openrouter_client(self):
         """Configura el cliente de OpenRouter para chat multimodal con manejo de errores"""
         try:
-            # Obtener API key y modelo de OpenRouter
-            self.api_key, self.model_id = utils.configure_openrouter_client()
+            # Obtener API key y modelo de OpenRouter (solo modelos multimodales)
+            self.api_key, self.model_id = utils.configure_openrouter_client(
+                multimodal_only=True
+            )
 
             # Verificar si el modelo seleccionado es multimodal
             if not self._is_model_multimodal(self.model_id):
@@ -74,12 +103,24 @@ class MultimodalChatbot:
         """Verifica si un modelo es multimodal basándose en su ID o en la lista de modelos conocidos"""
         # Lista de modelos conocidos por ser multimodales
         known_multimodal_models = [
+            # Modelos de Anthropic
             "anthropic/claude-3-haiku",
             "anthropic/claude-3-opus",
             "anthropic/claude-3-sonnet",
+            # Modelos de Google
             "google/gemini-pro-vision",
+            "google/gemini-2.5-pro",
+            # Modelos de OpenAI
             "openai/gpt-4-vision",
             "openai/gpt-4o",
+            # Modelos de Meta
+            "meta-llama/llama-4-maverick",
+            "meta-llama/llama-4-scout",
+            # Modelos de Qwen
+            "qwen/qwen2.5-vl",
+            # Otros modelos multimodales
+            "mistralai/mistral-large-vision",
+            "cohere/command-r-vision",
         ]
 
         # Verificar si el ID del modelo contiene alguno de los modelos conocidos
@@ -88,7 +129,20 @@ class MultimodalChatbot:
                 return True
 
         # Verificar si el modelo tiene palabras clave que indican capacidad multimodal
-        multimodal_keywords = ["vision", "image", "visual", "multimodal"]
+        multimodal_keywords = [
+            "vision",
+            "image",
+            "visual",
+            "multimodal",
+            "vl",
+            "img",
+            "picture",
+            "photo",
+            "camera",
+            "sight",
+            "see",
+            "view",
+        ]
         for keyword in multimodal_keywords:
             if keyword in model_id.lower():
                 return True
@@ -245,7 +299,7 @@ class MultimodalChatbot:
         # Mostrar la imagen si se ha cargado
         if uploaded_file:
             st.sidebar.image(
-                uploaded_file, caption="Imagen cargada", use_column_width=True
+                uploaded_file, caption="Imagen cargada", use_container_width=True
             )
 
             # Guardar la imagen en la sesión
@@ -290,7 +344,7 @@ class MultimodalChatbot:
 
                 utils.display_msg(display_message, "user")
                 st.sidebar.image(
-                    image_file, caption="Imagen cargada", use_column_width=True
+                    image_file, caption="Imagen cargada", use_container_width=True
                 )
 
                 # Si no hay texto, usar un prompt predeterminado

@@ -154,34 +154,71 @@ def sync_st_session():
 
 def get_openrouter_free_models() -> List[Dict[str, Any]]:
     """
-    Obtiene la lista de modelos multimodales gratuitos disponibles en OpenRouter
+    Obtiene la lista de modelos multimodales GRATUITOS disponibles en OpenRouter
     o modelos que tengan "free" en su nombre o descripción.
 
     Returns:
-        List[Dict[str, Any]]: Lista de modelos con sus detalles
+        List[Dict[str, Any]]: Lista de modelos gratuitos con sus detalles
     """
-    # Lista de modelos por defecto conocidos por ser gratuitos o tener versiones gratuitas
+    # Lista de modelos por defecto conocidos por ser gratuitos
     default_models = [
+        # Modelos multimodales gratuitos
         {
-            "id": "anthropic/claude-3-haiku:beta",
-            "name": "Claude 3 Haiku (Multimodal)",
-            "description": "Modelo multimodal rápido y eficiente de Anthropic",
-            "context_length": 200000,
+            "id": "meta-llama/llama-4-maverick:free",
+            "name": "Llama 4 Maverick (Free)",
+            "description": "Modelo multimodal de Meta con capacidades avanzadas de visión y razonamiento",
+            "context_length": 128000,
             "multimodal": True,
+            "free": True,
         },
         {
-            "id": "google/gemini-pro-vision",
-            "name": "Gemini Pro Vision",
-            "description": "Modelo multimodal de Google con capacidades visuales",
-            "context_length": 16000,
+            "id": "meta-llama/llama-4-scout:free",
+            "name": "Llama 4 Scout (Free)",
+            "description": "Modelo multimodal de Meta optimizado para eficiencia y razonamiento visual",
+            "context_length": 128000,
             "multimodal": True,
+            "free": True,
         },
         {
-            "id": "mistralai/mistral-large-latest",
-            "name": "Mistral Large",
-            "description": "Modelo potente de Mistral AI",
+            "id": "qwen/qwen2.5-vl-32b-instruct:free",
+            "name": "Qwen 2.5 VL 32B (Free)",
+            "description": "Modelo multimodal de Qwen con soporte para visión y múltiples idiomas",
+            "context_length": 32000,
+            "multimodal": True,
+            "free": True,
+        },
+        {
+            "id": "qwen/qwen2.5-vl-72b-instruct:free",
+            "name": "Qwen 2.5 VL 72B (Free)",
+            "description": "Versión más grande del modelo multimodal de Qwen con mayor capacidad",
+            "context_length": 32000,
+            "multimodal": True,
+            "free": True,
+        },
+        # Modelos de texto gratuitos de alta calidad
+        {
+            "id": "google/gemini-2.0-flash-thinking-exp:free",
+            "name": "Gemini 2.0 Flash (Free)",
+            "description": "Modelo rápido de Google con razonamiento avanzado",
             "context_length": 32000,
             "multimodal": False,
+            "free": True,
+        },
+        {
+            "id": "deepseek/deepseek-r1-distill-qwen-14b:free",
+            "name": "DeepSeek R1 Distill 14B (Free)",
+            "description": "Modelo eficiente de DeepSeek con conocimiento destilado",
+            "context_length": 32000,
+            "multimodal": False,
+            "free": True,
+        },
+        {
+            "id": "mistralai/mistral-small-3.1-24b-instruct:free",
+            "name": "Mistral Small 3.1 24B (Free)",
+            "description": "Modelo de Mistral AI optimizado para instrucciones",
+            "context_length": 32000,
+            "multimodal": False,
+            "free": True,
         },
     ]
 
@@ -207,7 +244,7 @@ def get_openrouter_free_models() -> List[Dict[str, Any]]:
         if response.status_code == 200:
             models_data = response.json()
 
-            # Filtrar modelos multimodales gratuitos o con "free" en su nombre/descripción
+            # Filtrar SOLO modelos multimodales GRATUITOS o con "free" en su nombre/descripción
             free_multimodal_models = []
             for model in models_data.get("data", []):
                 context_length = model.get("context_length", 0)
@@ -228,13 +265,21 @@ def get_openrouter_free_models() -> List[Dict[str, Any]]:
 
                 is_multimodal = model.get("multimodal", False)
 
-                # Incluir si es multimodal Y (es gratuito según pricing O tiene "free" en su nombre/descripción/id)
-                if is_multimodal and (
+                # Determinar si el modelo es realmente gratuito
+                is_truly_free = (
                     is_free_pricing
                     or has_free_in_name
                     or has_free_in_description
                     or has_free_in_id
-                ):
+                )
+
+                # Excluir modelos que tienen "not free" o "paid" en su descripción
+                has_not_free = (
+                    "not free" in model_description or "paid" in model_description
+                )
+
+                # Incluir SOLO si es multimodal Y es realmente gratuito Y no tiene indicaciones de que no es gratuito
+                if is_multimodal and is_truly_free and not has_not_free:
                     free_multimodal_models.append(
                         {
                             "id": model.get("id"),
@@ -260,9 +305,12 @@ def get_openrouter_free_models() -> List[Dict[str, Any]]:
         return default_models  # Devolver modelos por defecto en caso de excepción
 
 
-def configure_openrouter_client():
+def configure_openrouter_client(multimodal_only=False):
     """
     Configura un cliente para OpenRouter con manejo de errores y recuperación
+
+    Args:
+        multimodal_only (bool): Si es True, solo muestra modelos multimodales
 
     Returns:
         tuple: (api_key, model_id)
@@ -290,38 +338,61 @@ def configure_openrouter_client():
     # Obtener modelos disponibles (siempre devuelve al menos los modelos por defecto)
     free_models = get_openrouter_free_models()
 
-    # Filtrar solo modelos multimodales
-    multimodal_models = [
-        model for model in free_models if model.get("multimodal", False)
-    ]
+    # Si se solicitan solo modelos multimodales, filtrarlos
+    if multimodal_only:
+        multimodal_models = [
+            model for model in free_models if model.get("multimodal", False)
+        ]
 
-    # Si no hay modelos multimodales, mostrar un mensaje pero usar los modelos disponibles
-    if not multimodal_models:
-        st.info(
-            "No se encontraron modelos multimodales. Usando modelos de texto disponibles."
-        )
-        available_models = free_models
+        # Si no hay modelos multimodales, mostrar un mensaje pero usar los modelos disponibles
+        if not multimodal_models:
+            st.info(
+                "No se encontraron modelos multimodales gratuitos. Usando modelos de texto gratuitos disponibles."
+            )
+            available_models = free_models
+        else:
+            available_models = multimodal_models
+            st.success(
+                f"Se encontraron {len(multimodal_models)} modelos multimodales gratuitos."
+            )
     else:
-        available_models = multimodal_models
+        # Usar todos los modelos gratuitos disponibles
+        available_models = free_models
+        # Contar cuántos son multimodales para informar al usuario
+        multimodal_count = sum(
+            1 for model in free_models if model.get("multimodal", False)
+        )
+        if multimodal_count > 0:
+            st.info(
+                f"{multimodal_count} de los {len(free_models)} modelos gratuitos disponibles son multimodales (indicados con 🖼️)."
+            )
 
-    # Crear opciones para el selector
+    # Crear opciones para el selector (solo modelos gratuitos)
     model_options = {}
     for model in available_models:
         # Añadir indicador de multimodal y gratuito al nombre para mejor claridad
         name = model["name"]
         if model.get("multimodal", False):
             name += " 🖼️"
-        if "free" in name.lower() or "free" in model.get("description", "").lower():
-            name += " (Free)"
+        if "free" not in name.lower():
+            name += " (Free)"  # Añadir (Free) si no está ya en el nombre
         model_options[name] = model["id"]
+
+    # Mostrar mensaje informativo sobre modelos gratuitos
+    st.sidebar.info(
+        """
+    **Nota:** Solo se muestran modelos gratuitos o con versión gratuita.
+    Los modelos con 🖼️ soportan imágenes.
+    """
+    )
 
     # Mostrar selector de modelos con manejo de errores
     try:
         selected_name = st.sidebar.selectbox(
-            "Modelo de OpenRouter",
+            "Modelo Gratuito de OpenRouter",
             options=list(model_options.keys()),
             key="SELECTED_OPENROUTER_MODEL",
-            help="Selecciona un modelo. Los modelos con 🖼️ soportan imágenes.",
+            help="Selecciona un modelo gratuito. Los modelos con 🖼️ soportan imágenes.",
         )
         model_id = model_options.get(selected_name)
     except Exception as e:
