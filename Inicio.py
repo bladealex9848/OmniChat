@@ -79,17 +79,19 @@ usando la API de OCR (Reconocimiento Óptico de Caracteres) de Mistral AI.
 with st.expander("ℹ️ Sistema de respaldo para búsquedas en internet"):
     st.markdown(
         """
-    ### Herramientas de búsqueda con respaldo
+    ### Herramientas de búsqueda con respaldo transparente
 
-    Este laboratorio implementa un sistema de respaldo para búsquedas en internet cuando DuckDuckGo alcanza límites de tasa:
+    Este laboratorio implementa un sistema de respaldo automático y transparente para búsquedas en internet:
 
     1. **DuckDuckGo** (principal)
-    2. **Serper.dev** (respaldo, requiere API key)
-    3. **SerpAPI** (respaldo, requiere API key)
-    4. **Scraping directo** (respaldo final)
-    5. **Google Search API** (opcional, requiere configuración)
+    2. **Google** (respaldo mediante scraping)
+    3. **Bing** (respaldo mediante scraping)
+    4. **DuckDuckGo HTML** (respaldo final mediante scraping)
 
-    Si experimentas errores de "rate limit" al usar el Chatbot con Acceso a Internet, el sistema intentará usar
-    automáticamente los métodos alternativos de búsqueda.
+    El sistema cambia automáticamente entre métodos de búsqueda cuando uno falla, sin mostrar errores al usuario.
+    Todos los métodos son gratuitos y no requieren API keys adicionales.
+
+    Si todos los métodos fallan, el sistema proporcionará una respuesta basada en información básica almacenada,
+    indicando que puede no estar completamente actualizada.
     """
     )

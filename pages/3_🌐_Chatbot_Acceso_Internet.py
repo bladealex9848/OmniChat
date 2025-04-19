@@ -9,12 +9,14 @@ from langchain import hub
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_community.callbacks import StreamlitCallbackHandler
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.tools import Tool
 
 # Importar herramienta de búsqueda con respaldo
 import search_utils
+
+# Importar nuestro callback personalizado
+from custom_callbacks import CustomStreamlitCallbackHandler
 
 st.set_page_config(page_title="ChatNet", page_icon="🌐")
 st.header("Chatbot con Acceso a Internet")
@@ -29,39 +31,28 @@ class InternetChatbot:
         self.llm = utils.configure_llm()
 
     def setup_agent(self):
-        # Definir herramientas de búsqueda
-        try:
-            # Intentar usar DuckDuckGo primero
-            ddg_search = DuckDuckGoSearchRun()
-            search_tool = Tool(
-                name="DuckDuckGoSearch",
-                func=ddg_search.run,
-                description="Útil cuando necesitas responder preguntas sobre eventos actuales. Debes hacer preguntas específicas",
-            )
-        except Exception as e:
-            st.warning(
-                f"Error al configurar DuckDuckGo: {str(e)}. Usando herramienta de búsqueda alternativa."
-            )
-            # Usar nuestra herramienta de búsqueda con respaldo
-            fallback_search = search_utils.get_search_tool()
-            search_tool = Tool(
-                name="InternetSearch",
-                func=fallback_search.run,
-                description="Útil cuando necesitas responder preguntas sobre eventos actuales. Debes hacer preguntas específicas",
-            )
+        # Usar directamente nuestra herramienta de búsqueda con respaldo
+        # Esto evita mostrar errores al usuario y garantiza que siempre tengamos una respuesta
+        fallback_search = search_utils.get_search_tool()
+        search_tool = Tool(
+            name="InternetSearch",
+            func=fallback_search.run,
+            description="Útil cuando necesitas responder preguntas sobre eventos actuales. Debes hacer preguntas específicas",
+        )
 
-        # No usamos Google Search API porque requiere API key
-        # En su lugar, usamos métodos de scraping gratuitos implementados en search_utils.py
+        # Configurar herramientas
         tools = [search_tool]
 
-        # Get the prompt - can modify this
+        # Usar el prompt estándar de React
         prompt = hub.pull("hwchase17/react-chat")
 
         # Setup LLM and Agent
         memory = ConversationBufferMemory(memory_key="chat_history")
         agent = create_react_agent(self.llm, tools, prompt)
+
+        # Configurar el agente para que no sea verbose (ocultar la cadena de pensamiento)
         agent_executor = AgentExecutor(
-            agent=agent, tools=tools, memory=memory, verbose=True
+            agent=agent, tools=tools, memory=memory, verbose=False
         )
         return agent_executor, memory
 
@@ -113,54 +104,71 @@ class InternetChatbot:
         if user_query:
             utils.display_msg(user_query, "user")
             with st.chat_message("assistant"):
-                st_cb = StreamlitCallbackHandler(st.container())
-                try:
-                    # Mostrar indicador de carga
-                    with st.status("Buscando información...", expanded=False) as status:
+                # Usar nuestro callback personalizado que oculta la cadena de pensamiento
+                custom_cb = CustomStreamlitCallbackHandler(st.container())
+                # Mostrar indicador de carga
+                with st.status("Buscando información...", expanded=False) as status:
+                    try:
                         result = agent_executor.invoke(
                             {
                                 "input": user_query,
                                 "chat_history": memory.chat_memory.messages,
                             },
-                            {"callbacks": [st_cb]},
+                            {"callbacks": [custom_cb]},
                         )
                         response = result["output"]
                         status.update(
                             label="¡Información encontrada!", state="complete"
                         )
 
-                    # Mostrar respuesta
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": response}
-                    )
-                    st.write(response)
+                        # Mostrar respuesta
+                        st.session_state.messages.append(
+                            {"role": "assistant", "content": response}
+                        )
+                        st.write(response)
 
-                except Exception as e:
-                    # Manejar diferentes tipos de errores
-                    if "RatelimitException" in str(e) or "rate limit" in str(e).lower():
-                        error_msg = f"Lo siento, se ha alcanzado el límite de consultas en los servicios de búsqueda. Por favor, intenta de nuevo en unos minutos o reformula tu pregunta de manera más específica."
-                    elif "timeout" in str(e).lower():
-                        error_msg = f"Lo siento, la búsqueda ha tardado demasiado tiempo. Por favor, intenta con una pregunta más específica."
-                    elif "connection" in str(e).lower():
-                        error_msg = f"Lo siento, hay problemas de conexión. Por favor, verifica tu conexión a internet e intenta de nuevo."
-                    else:
-                        error_msg = f"Lo siento, ocurrió un error: {str(e)}. Por favor, intenta reformular tu pregunta."
+                    except Exception as e:
+                        # Registrar el error en el log para depuración (no visible para el usuario)
+                        import logging
 
-                    st.error(error_msg)
-                    st.session_state.messages.append(
-                        {"role": "assistant", "content": error_msg}
-                    )
+                        logging.error(f"Error en la búsqueda: {str(e)}")
 
-                    # Sugerencias para el usuario
-                    st.info(
-                        """
-                    **Sugerencias para mejorar las búsquedas:**
-                    - Haz preguntas más específicas
-                    - Incluye fechas o nombres completos
-                    - Evita preguntas muy generales
-                    - Espera unos minutos si hay errores de límite de consultas
-                    """
-                    )
+                        # Intentar obtener una respuesta directamente de la herramienta de búsqueda
+                        fallback_search = search_utils.get_search_tool()
+                        raw_search_results = fallback_search.run(user_query)
+
+                        # Procesar los resultados con el LLM para obtener una respuesta más natural
+                        try:
+                            # Crear un prompt para que el LLM procese los resultados
+                            prompt_template = f"""Basándote en la siguiente información de búsqueda, responde a la pregunta: '{user_query}'
+
+                            RESULTADOS DE BÚSQUEDA:
+                            {raw_search_results}
+
+                            Proporciona una respuesta clara, concisa y bien estructurada. Si la información no es suficiente, indícalo.
+                            No menciones que estás basando tu respuesta en resultados de búsqueda. Responde como si tuvieras el conocimiento directamente."""
+
+                            # Usar el LLM para procesar los resultados
+                            processed_response = self.llm.invoke(
+                                prompt_template
+                            ).content
+                        except Exception as llm_error:
+                            # Si falla el procesamiento con el LLM, usar los resultados crudos
+                            logging.error(
+                                f"Error al procesar con LLM: {str(llm_error)}"
+                            )
+                            processed_response = raw_search_results
+
+                        # Actualizar el estado del indicador de carga
+                        status.update(
+                            label="¡Información encontrada!", state="complete"
+                        )
+
+                        # Mostrar la respuesta procesada al usuario
+                        st.session_state.messages.append(
+                            {"role": "assistant", "content": processed_response}
+                        )
+                        st.write(processed_response)
 
 
 if __name__ == "__main__":
