@@ -128,57 +128,69 @@ class InternetChatbot:
             placeholder="¡Hazme una pregunta sobre eventos actuales!"
         )
         if user_query:
-            # Mostrar la pregunta del usuario
-            utils.display_msg(user_query, "user")
+            # Mostrar indicador de carga
+            with st.status("Buscando información...", expanded=True) as status:
+                try:
+                    # Añadir la pregunta del usuario al historial
+                    utils.display_msg(user_query, "user")
 
-            # Crear un mensaje del asistente para mostrar la respuesta
-            with st.chat_message("assistant"):
-                # Mostrar indicador de carga
-                with st.status("Buscando información...", expanded=False) as status:
+                    # Intentar obtener respuesta usando el agente
+                    result = agent_executor.invoke(
+                        {
+                            "input": user_query,
+                            "chat_history": memory.chat_memory.messages,
+                        }
+                    )
+                    response = result["output"]
+
+                    # Mostrar la cadena de pensamiento en el indicador de carga
+                    if "intermediate_steps" in result:
+                        for step in result["intermediate_steps"]:
+                            if hasattr(step[0], "tool") and hasattr(step[0], "tool_input"):
+                                status.write(f"**Acción:** {step[0].tool}")
+                                status.write(f"**Entrada:** {step[0].tool_input}")
+                                status.write(f"**Resultado:** {step[1]}")
+
+                except Exception as e:
+                    # Si falla el agente, usar búsqueda directa
+                    import logging
+                    logging.error(f"Error en la búsqueda: {str(e)}")
+
+                    # Buscar información
+                    status.write("Usando búsqueda directa como alternativa...")
+                    search_results = perform_web_search(user_query)
+                    raw_search_results = format_search_results(search_results) if search_results else "No se encontraron resultados para la consulta."
+
+                    # Mostrar resultados de búsqueda en el indicador de carga
+                    status.write("Resultados de búsqueda:")
+                    status.write(raw_search_results[:500] + "..." if len(raw_search_results) > 500 else raw_search_results)
+
+                    # Procesar los resultados con el LLM
                     try:
-                        # Intentar obtener respuesta usando el agente
-                        result = agent_executor.invoke(
-                            {
-                                "input": user_query,
-                                "chat_history": memory.chat_memory.messages,
-                            }
-                        )
-                        response = result["output"]
+                        status.write("Procesando resultados...")
+                        prompt_template = f"""Basándote en la siguiente información de búsqueda, responde a la pregunta: '{user_query}'
 
-                    except Exception as e:
-                        # Si falla el agente, usar búsqueda directa
-                        import logging
-                        logging.error(f"Error en la búsqueda: {str(e)}")
+                        RESULTADOS DE BÚSQUEDA:
+                        {raw_search_results}
 
-                        # Buscar información
-                        search_results = perform_web_search(user_query)
-                        raw_search_results = format_search_results(search_results) if search_results else "No se encontraron resultados para la consulta."
+                        Proporciona una respuesta clara, concisa y bien estructurada. Si la información no es suficiente, indícalo.
+                        No menciones que estás basando tu respuesta en resultados de búsqueda. Responde como si tuvieras el conocimiento directamente."""
 
-                        # Procesar los resultados con el LLM
-                        try:
-                            prompt_template = f"""Basándote en la siguiente información de búsqueda, responde a la pregunta: '{user_query}'
+                        # Usar el LLM para procesar los resultados
+                        response = self.llm.invoke(prompt_template).content
+                    except Exception as llm_error:
+                        # Si falla el procesamiento con el LLM, usar los resultados crudos
+                        logging.error(f"Error al procesar con LLM: {str(llm_error)}")
+                        response = raw_search_results
 
-                            RESULTADOS DE BÚSQUEDA:
-                            {raw_search_results}
+                # Actualizar el estado del indicador de carga
+                status.update(label="¡Información encontrada!", state="complete")
 
-                            Proporciona una respuesta clara, concisa y bien estructurada. Si la información no es suficiente, indícalo.
-                            No menciones que estás basando tu respuesta en resultados de búsqueda. Responde como si tuvieras el conocimiento directamente."""
+            # Añadir la respuesta al historial
+            utils.display_msg(response, "assistant")
 
-                            # Usar el LLM para procesar los resultados
-                            response = self.llm.invoke(prompt_template).content
-                        except Exception as llm_error:
-                            # Si falla el procesamiento con el LLM, usar los resultados crudos
-                            logging.error(f"Error al procesar con LLM: {str(llm_error)}")
-                            response = raw_search_results
-
-                    # Actualizar el estado del indicador de carga
-                    status.update(label="¡Información encontrada!", state="complete")
-
-                # Mostrar la respuesta
-                st.write(response)
-
-                # Añadir la respuesta al historial
-                st.session_state.messages.append({"role": "assistant", "content": response})
+            # Recargar la página para mostrar el historial actualizado
+            st.rerun()
 
 
 if __name__ == "__main__":
