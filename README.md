@@ -13,7 +13,7 @@ OmniChat ofrece las siguientes capacidades:
 - **Chatbot Consciente del Contexto**:
   Un asistente que recuerda conversaciones previas y proporciona respuestas acordes.
 - **Chatbot con Acceso a Internet**:
-  Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes. Incluye sistema de respaldo gratuito (sin API keys) para búsquedas cuando DuckDuckGo alcanza límites de tasa.
+  Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes. Incluye sistema de respaldo robusto que prioriza métodos gratuitos (DuckDuckGo API y DuckDuckGo HTML) y utiliza APIs (Google PSE y Exa) como respaldo si es necesario.
 - **Chat con Documentos**:
   Permite al chatbot acceder a documentos personalizados, respondiendo preguntas basadas en la información contenida.
 - **Chat con Base de Datos SQL**:
@@ -85,6 +85,8 @@ Las claves API necesarias son:
 - **OPENAI_API_KEY**: Para los chatbots basados en OpenAI
 - **OPENROUTER_API_KEY**: Para el chat multimodal con OpenRouter
 - **MISTRAL_API_KEY**: Para OCR y procesamiento de documentos
+- **GOOGLE_PSE_API_KEY** y **GOOGLE_PSE_ENGINE_ID**: Para búsquedas con Google Programmable Search Engine (opcional, usado como respaldo)
+- **EXA_API_KEY**: Para búsquedas con Exa (opcional, usado como respaldo)
 
 # 🖥️ Ejecución Local
 ## Ejecutar la aplicación principal de Streamlit
@@ -108,6 +110,63 @@ $ docker run -p 8501:8501 omnichat
 
 ## 💁 Contribuciones
 Planeamos añadir más funcionalidades a OmniChat con el tiempo. Las contribuciones son bienvenidas.
+
+### Git Hooks
+
+Este proyecto incluye git hooks para validar el código antes de commit y push. Los hooks realizan las siguientes validaciones:
+
+- Detectan claves API expuestas en el código
+- Verifican que no haya archivos grandes (>10MB)
+- Verifican que no haya conflictos de merge sin resolver
+- Verifican que los archivos Python no tengan errores de sintaxis
+- Verifican que requirements.txt y README.md estén actualizados
+
+#### Instalación Local (solo para este repositorio)
+
+Para instalar los hooks solo en este repositorio, ejecuta:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+#### Instalación Global (para todos los repositorios)
+
+Para instalar los hooks globalmente en tu sistema (afectará a todos los repositorios Git actuales y futuros), ejecuta:
+
+```bash
+./scripts/install-global-git-hooks.sh
+```
+
+Esto instalará los hooks en `~/.git-hooks/` y configurará Git para usar esta ubicación en todos los repositorios. **Solo necesitas ejecutar este script una vez en tu equipo**.
+
+#### Verificación de la Instalación Global
+
+Para verificar que los hooks están instalados globalmente, ejecuta:
+
+```bash
+git config --global --get core.hooksPath
+```
+
+Debería mostrar: `/Users/tu_usuario/.git-hooks` o similar.
+
+#### Desactivación Temporal
+
+Para desactivar temporalmente los hooks (si es necesario), usa:
+
+```bash
+git commit --no-verify
+git push --no-verify
+```
+
+#### Desinstalación Global
+
+Para desinstalar los hooks globales y volver a la configuración por defecto:
+
+```bash
+git config --global --unset core.hooksPath
+```
+
+Para más información detallada, consulta [scripts/README.md](scripts/README.md).
 
 ## 📄 Licencia
 Este proyecto está bajo la licencia MIT. Consulta el archivo `LICENSE` para obtener más detalles.
