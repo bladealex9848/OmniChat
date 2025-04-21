@@ -107,15 +107,15 @@ class CustomStreamlitCallbackHandler(BaseCallbackHandler):
 
     def on_agent_finish(self, finish: Dict[str, Any], **kwargs: Any) -> None:
         """Método llamado cuando un agente termina."""
-        # Mostrar la respuesta final
+        # Obtener la respuesta final
         output = finish.get("output", "No se encontró una respuesta.")
 
         # Guardar la respuesta final en la lista de pensamientos
         thought = f"Respuesta final: {output}\n"
         self.thoughts.append(thought)
 
-        # Mostrar la respuesta final
-        st.markdown(f"{output}")
+        # No mostramos la respuesta aquí, se mostrará a través del historial de mensajes
+        # La respuesta se añade al historial en pages/3_🌐_Chatbot_Acceso_Internet.py
 
         # Añadir un botón para mostrar/ocultar la cadena de pensamiento
         if self.thoughts:

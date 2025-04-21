@@ -149,12 +149,12 @@ class InternetChatbot:
                             label="¡Información encontrada!", state="complete"
                         )
 
-                        # La respuesta ya se muestra en el callback personalizado
-                        # Solo guardamos el mensaje en el historial
+                        # Añadir la respuesta al historial
                         st.session_state.messages.append(
                             {"role": "assistant", "content": response}
                         )
-                        # No es necesario mostrar la respuesta aquí, ya se muestra en el callback
+                        # Mostrar la respuesta
+                        st.write(response)
 
                     except Exception as e:
                         # Registrar el error en el log para depuración (no visible para el usuario)
