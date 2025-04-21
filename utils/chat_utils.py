@@ -38,8 +38,7 @@ def enable_chat_history(func):
             except:
                 pass
 
-        # to show chat history on ui
-        # Mostrar el historial del chat en la interfaz de usuario
+        # Inicializar mensajes si no existen
         if "messages" not in st.session_state:
             st.session_state["messages"] = [
                 {
@@ -47,11 +46,15 @@ def enable_chat_history(func):
                     "content": "Hola, soy un asistente virtual. ¿En qué puedo ayudarte hoy?",
                 }
             ]
+
+        # Ejecutar la función decorada primero (para mostrar encabezados)
+        result = func(*args, **kwargs)
+
+        # Mostrar el historial del chat en la interfaz de usuario después
         for msg in st.session_state["messages"]:
             st.chat_message(msg["role"]).write(msg["content"])
 
-        # Ejecutar la función decorada
-        return func(*args, **kwargs)
+        return result
 
     return execute
 
