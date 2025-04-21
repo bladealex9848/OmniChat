@@ -47,12 +47,19 @@ def enable_chat_history(func):
                 }
             ]
 
-        # Ejecutar la función decorada primero (para mostrar encabezados)
-        result = func(*args, **kwargs)
-
-        # Mostrar el historial del chat en la interfaz de usuario después
-        for msg in st.session_state["messages"]:
-            st.chat_message(msg["role"]).write(msg["content"])
+        # Mostrar el mensaje de bienvenida solo si es la primera carga de la página
+        # y no hay más mensajes en el historial
+        if len(st.session_state["messages"]) == 1 and st.session_state["messages"][0]["role"] == "assistant":
+            # Ejecutar la función decorada primero (para mostrar encabezados)
+            result = func(*args, **kwargs)
+            # Mostrar el mensaje de bienvenida después de los encabezados
+            st.chat_message("assistant").write(st.session_state["messages"][0]["content"])
+        else:
+            # Si ya hay una conversación en curso, mostrar todos los mensajes
+            for msg in st.session_state["messages"]:
+                st.chat_message(msg["role"]).write(msg["content"])
+            # Luego ejecutar la función decorada
+            result = func(*args, **kwargs)
 
         return result
 
@@ -73,8 +80,9 @@ def display_msg(msg, author):
         msg (str): mensaje a mostrar
         author (str): autor del mensaje -usuario/asistente
     """
+    # Solo añadir el mensaje al historial, no mostrarlo
+    # (ya se mostrará a través del decorador enable_chat_history)
     st.session_state.messages.append({"role": author, "content": msg})
-    st.chat_message(author).write(msg)
 
 
 def sync_st_session():
