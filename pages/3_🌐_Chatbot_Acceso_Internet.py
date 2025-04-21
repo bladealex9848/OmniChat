@@ -243,13 +243,14 @@ class InternetChatbot:
                     # Guardar la cadena de pensamiento completa para esta pregunta
                     st.session_state["thought_chains"][question_id] = thought_chain
 
-                # Añadir la respuesta al historial con un botón para mostrar la cadena de pensamiento
+                # Añadir la respuesta al historial con la cadena de pensamiento visible automáticamente
                 with st.chat_message("assistant"):
                     st.write(response)
-                    if st.button(f"Mostrar cadena de pensamiento", key=f"show_thought_{question_id}"):
-                        with st.expander("Cadena de pensamiento", expanded=True):
-                            for thought in st.session_state["thought_chains"].get(question_id, ["No hay cadena de pensamiento disponible"]):
-                                st.markdown(thought)
+
+                    # Mostrar la cadena de pensamiento en un expansor
+                    with st.expander("Cadena de pensamiento", expanded=True):
+                        for thought in st.session_state["thought_chains"].get(question_id, ["No hay cadena de pensamiento disponible"]):
+                            st.markdown(thought)
 
                 # Añadir la respuesta al historial de mensajes
                 st.session_state.messages.append({"role": "assistant", "content": response})
