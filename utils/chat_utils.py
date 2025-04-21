@@ -47,12 +47,13 @@ def enable_chat_history(func):
                 }
             ]
 
-        # Mostrar todos los mensajes del historial
+        # Ejecutar la función decorada PRIMERO (para mostrar encabezados y manejar la lógica de la página)
+        result = func(*args, **kwargs)
+
+        # DESPUÉS mostrar todos los mensajes del historial
+        # Esto asegura que el título aparezca antes que los mensajes
         for msg in st.session_state["messages"]:
             st.chat_message(msg["role"]).write(msg["content"])
-
-        # Ejecutar la función decorada (para mostrar encabezados y manejar la lógica de la página)
-        result = func(*args, **kwargs)
 
         return result
 
