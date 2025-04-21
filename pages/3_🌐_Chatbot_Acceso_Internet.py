@@ -236,12 +236,29 @@ class InternetChatbot:
                             status.write("Procesando resultados...")
                             thought_chain.append("Procesando resultados con LLM...")
 
-                            prompt_template = f"""Basándote en la siguiente información de búsqueda, responde a la pregunta: '{user_query}'
+                            # Preparar el contexto de la conversación para el prompt
+                            conversation_context = ""
+                            if len(st.session_state.messages) > 2:  # Si hay más mensajes además del saludo y la pregunta actual
+                                conversation_context = "CONTEXTO DE LA CONVERSACIÓN ANTERIOR:\n"
+                                # Tomar los últimos 4 mensajes o menos si no hay tantos
+                                start_idx = max(1, len(st.session_state.messages) - 4)  # Omitir el saludo inicial
+                                for i in range(start_idx, len(st.session_state.messages)):
+                                    msg = st.session_state.messages[i]
+                                    # Solo incluir el contenido principal, no las cadenas de pensamiento
+                                    content = msg["content"]
+                                    if "---" in content:
+                                        content = content.split("---")[0].strip()
+                                    role = "Usuario" if msg["role"] == "user" else "Asistente"
+                                    conversation_context += f"{role}: {content}\n"
+                                conversation_context += "\n"
 
-                            RESULTADOS DE BÚSQUEDA:
+                            prompt_template = f"""Basándote en la siguiente información de búsqueda y el contexto de la conversación, responde a la pregunta: '{user_query}'
+
+                            {conversation_context}RESULTADOS DE BÚSQUEDA:
                             {raw_search_results}
 
                             Proporciona una respuesta clara, concisa y bien estructurada. Si la información no es suficiente, indícalo.
+                            Asegúrate de mantener la coherencia con las respuestas anteriores y el contexto de la conversación.
                             No menciones que estás basando tu respuesta en resultados de búsqueda. Responde como si tuvieras el conocimiento directamente."""
 
                             # Guardar el prompt en la cadena de pensamiento
@@ -281,8 +298,8 @@ class InternetChatbot:
                     # Mostrar la respuesta principal
                     st.write(response)
 
-                    # Mostrar la cadena de pensamiento en un expansor
-                    with st.expander("Cadena de pensamiento", expanded=True):
+                    # Mostrar la cadena de pensamiento en un expansor (contraído por defecto)
+                    with st.expander("Cadena de pensamiento", expanded=False):
                         for thought in st.session_state["thought_chains"].get(question_id, ["No hay cadena de pensamiento disponible"]):
                             st.markdown(thought)
 
