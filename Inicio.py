@@ -5,6 +5,7 @@ import sys
 # Añadir el directorio raíz al path para poder importar utils
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import utils
+from sidebar_info import show_author_info
 
 st.set_page_config(
     page_title="OmniChat: Laboratorio de IA", page_icon="🤖", layout="wide", initial_sidebar_state="expanded"
@@ -106,4 +107,4 @@ with st.expander("ℹ️ Sistema de respaldo para búsquedas en internet"):
     )
 
 # Mostrar información del autor en la barra lateral
-utils.show_author_info()
+show_author_info()
