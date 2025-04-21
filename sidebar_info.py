@@ -31,57 +31,83 @@ def show_author_info():
     # Redes sociales y perfiles profesionales con etiquetas mejoradas
     st.sidebar.markdown("##### Perfiles Profesionales")
 
-    # Estilo CSS para las etiquetas de enlaces e incluir Font Awesome
+    # Estilo CSS para las etiquetas de enlaces inspirado en la etiqueta de visitantes
     st.markdown("""
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-    .link-badge {
-        display: inline-block;
-        padding: 5px 10px;
-        margin: 4px 2px;
-        border-radius: 5px;
+    .badge-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+        justify-content: center;
+    }
+    .badge-link {
         text-decoration: none;
-        font-weight: 500;
-        font-size: 0.85em;
-        color: white;
+        display: inline-block;
+    }
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        background-color: #f0f2f6;
+        border-radius: 5px;
+        padding: 5px 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         transition: all 0.2s ease;
     }
-    .link-badge:hover {
-        opacity: 0.85;
+    .badge:hover {
         transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
-    .linkedin {
-        background-color: #0077B5;
+    .badge-label {
+        font-weight: 500;
+        color: #5d5d5d;
+        margin-right: 5px;
     }
-    .github {
-        background-color: #333;
+    .badge-value {
+        font-weight: bold;
+        color: #1e7ebf;
     }
-    .web {
-        background-color: #2E7D32;
+    .badge-linkedin .badge-value {
+        color: #0077B5;
     }
-    .whatsapp {
-        background-color: #25D366;
+    .badge-github .badge-value {
+        color: #333;
     }
-    .email {
-        background-color: #D93025;
+    .badge-web .badge-value {
+        color: #2E7D32;
     }
-    .twitter {
-        background-color: #1DA1F2;
+    .badge-whatsapp .badge-value {
+        color: #25D366;
+    }
+    .badge-email .badge-value {
+        color: #D93025;
+    }
+    .badge-twitter .badge-value {
+        color: #1DA1F2;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # Enlaces como etiquetas con iconos de Font Awesome
+    # Enlaces como etiquetas con estilo de badge
     st.sidebar.markdown("""
-    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-        <a href="https://www.linkedin.com/in/alexanderoviedofadul/" target="_blank" class="link-badge linkedin">
-            <i class="fab fa-linkedin"></i> LinkedIn
+    <div class="badge-container">
+        <a href="https://www.linkedin.com/in/alexanderoviedofadul/" target="_blank" class="badge-link badge-linkedin">
+            <div class="badge">
+                <span class="badge-label">LinkedIn:</span>
+                <span class="badge-value">Perfil</span>
+            </div>
         </a>
-        <a href="https://github.com/bladealex9848" target="_blank" class="link-badge github">
-            <i class="fab fa-github"></i> GitHub
+        <a href="https://github.com/bladealex9848" target="_blank" class="badge-link badge-github">
+            <div class="badge">
+                <span class="badge-label">GitHub:</span>
+                <span class="badge-value">bladealex9848</span>
+            </div>
         </a>
-        <a href="https://twitter.com/bladealex9848" target="_blank" class="link-badge twitter">
-            <i class="fab fa-twitter"></i> Twitter
+        <a href="https://twitter.com/bladealex9848" target="_blank" class="badge-link badge-twitter">
+            <div class="badge">
+                <span class="badge-label">Twitter:</span>
+                <span class="badge-value">@bladealex9848</span>
+            </div>
         </a>
     </div>
     """, unsafe_allow_html=True)
@@ -89,18 +115,30 @@ def show_author_info():
     # Enlaces de contacto
     st.sidebar.markdown("##### Contacto")
     st.sidebar.markdown("""
-    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
-        <a href="https://alexanderoviedofadul.dev" target="_blank" class="link-badge web">
-            <i class="fas fa-globe"></i> Portfolio
+    <div class="badge-container">
+        <a href="https://alexanderoviedofadul.dev" target="_blank" class="badge-link badge-web">
+            <div class="badge">
+                <span class="badge-label">Web:</span>
+                <span class="badge-value">Portfolio</span>
+            </div>
         </a>
-        <a href="https://marduk.pro" target="_blank" class="link-badge web">
-            <i class="fas fa-briefcase"></i> Marduk.pro
+        <a href="https://marduk.pro" target="_blank" class="badge-link badge-web">
+            <div class="badge">
+                <span class="badge-label">Web:</span>
+                <span class="badge-value">Marduk.pro</span>
+            </div>
         </a>
-        <a href="https://wa.me/573015930519" target="_blank" class="link-badge whatsapp">
-            <i class="fab fa-whatsapp"></i> WhatsApp
+        <a href="https://wa.me/573015930519" target="_blank" class="badge-link badge-whatsapp">
+            <div class="badge">
+                <span class="badge-label">WhatsApp:</span>
+                <span class="badge-value">Contacto</span>
+            </div>
         </a>
-        <a href="mailto:alexander.oviedo.fadul@gmail.com" target="_blank" class="link-badge email">
-            <i class="fas fa-envelope"></i> Email
+        <a href="mailto:alexander.oviedo.fadul@gmail.com" target="_blank" class="badge-link badge-email">
+            <div class="badge">
+                <span class="badge-label">Email:</span>
+                <span class="badge-value">Contacto</span>
+            </div>
         </a>
     </div>
     """, unsafe_allow_html=True)
@@ -120,12 +158,18 @@ def show_author_info():
 
     # Enlaces del proyecto como etiquetas
     st.sidebar.markdown("""
-    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
-        <a href="https://github.com/bladealex9848/OmniChat" target="_blank" class="link-badge github">
-            <i class="fab fa-github"></i> Repositorio
+    <div class="badge-container">
+        <a href="https://github.com/bladealex9848/OmniChat" target="_blank" class="badge-link badge-github">
+            <div class="badge">
+                <span class="badge-label">GitHub:</span>
+                <span class="badge-value">Repositorio</span>
+            </div>
         </a>
-        <a href="https://omnichat.streamlit.app" target="_blank" class="link-badge web">
-            <i class="fas fa-globe"></i> Demo Online
+        <a href="https://omnichat.streamlit.app" target="_blank" class="badge-link badge-web">
+            <div class="badge">
+                <span class="badge-label">Demo:</span>
+                <span class="badge-value">Online</span>
+            </div>
         </a>
     </div>
     """, unsafe_allow_html=True)
@@ -144,13 +188,31 @@ def show_author_info():
     # Tecnologías utilizadas
     st.sidebar.markdown("##### Tecnologías")
     st.sidebar.markdown("""
-    <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px;">
-        <span style="background-color: #3572A5; color: white; padding: 3px 7px; border-radius: 3px; font-size: 0.75em;">Python</span>
-        <span style="background-color: #FF4B4B; color: white; padding: 3px 7px; border-radius: 3px; font-size: 0.75em;">Streamlit</span>
-        <span style="background-color: #412991; color: white; padding: 3px 7px; border-radius: 3px; font-size: 0.75em;">LangChain</span>
-        <span style="background-color: #000000; color: white; padding: 3px 7px; border-radius: 3px; font-size: 0.75em;">OpenAI</span>
-        <span style="background-color: #F9AB00; color: white; padding: 3px 7px; border-radius: 3px; font-size: 0.75em;">OpenRouter</span>
-        <span style="background-color: #0081CB; color: white; padding: 3px 7px; border-radius: 3px; font-size: 0.75em;">Mistral</span>
+    <div class="badge-container">
+        <div class="badge">
+            <span class="badge-label">Python</span>
+            <span class="badge-value" style="color: #3572A5;">3.10+</span>
+        </div>
+        <div class="badge">
+            <span class="badge-label">Streamlit</span>
+            <span class="badge-value" style="color: #FF4B4B;">1.44.0</span>
+        </div>
+        <div class="badge">
+            <span class="badge-label">LangChain</span>
+            <span class="badge-value" style="color: #412991;">0.1.0+</span>
+        </div>
+        <div class="badge">
+            <span class="badge-label">OpenAI</span>
+            <span class="badge-value" style="color: #000000;">API</span>
+        </div>
+        <div class="badge">
+            <span class="badge-label">OpenRouter</span>
+            <span class="badge-value" style="color: #F9AB00;">API</span>
+        </div>
+        <div class="badge">
+            <span class="badge-label">Mistral</span>
+            <span class="badge-value" style="color: #0081CB;">API</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
