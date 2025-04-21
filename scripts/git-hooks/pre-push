@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# Script de pre-push para OmniChat
+# Este script se ejecuta automáticamente antes de cada push para validar el código
+
+echo "🔍 Ejecutando validaciones pre-push para OmniChat..."
+
+# Colores para mensajes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+# Función para mostrar mensajes de error y salir
+error_exit() {
+    echo -e "${RED}❌ ERROR: $1${NC}"
+    exit 1
+}
+
+# Función para mostrar mensajes de advertencia
+warning() {
+    echo -e "${YELLOW}⚠️ ADVERTENCIA: $1${NC}"
+}
+
+# Función para mostrar mensajes de éxito
+success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+# 1. Verificar que todos los tests pasen (si pytest está instalado)
+echo "🧪 Verificando que todos los tests pasen..."
+
+if command -v pytest &> /dev/null; then
+    if [ -d "tests" ]; then
+        echo "Ejecutando tests con pytest..."
+        if ! pytest -xvs tests; then
+            error_exit "Algunos tests fallaron. Por favor, corrige los tests antes de hacer push."
+        fi
+        success "Todos los tests pasaron."
+    else
+        warning "No se encontró el directorio 'tests'. Considera añadir tests para tu proyecto."
+    fi
+else
+    warning "pytest no está instalado. Considera instalarlo para ejecutar tests automáticamente."
+fi
+
+# 2. Verificar que no haya claves API expuestas en el código
+echo "🔑 Verificando que no haya claves API expuestas en el código..."
+
+# Patrones de claves API comunes
+API_PATTERNS=(
+    "sk-[a-zA-Z0-9]{48}" # OpenAI API key
+    "r[a-zA-Z0-9]{32}" # Mistral API key
+    "sk-or-v1-[a-zA-Z0-9]{64}" # OpenRouter API key
+    "AIza[a-zA-Z0-9_-]{35}" # Google API key
+    "tvly-[a-zA-Z0-9]{32}" # Tavily API key
+    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" # UUID format (Exa, YOU.com, etc.)
+)
+
+# Archivos a excluir de la verificación
+EXCLUDE_FILES=(
+    ".env"
+    "*.env"
+    ".streamlit/secrets.toml"
+    "secrets.toml.example"
+)
+
+# Construir el patrón de exclusión
+EXCLUDE_PATTERN=$(printf "|%s" "${EXCLUDE_FILES[@]}")
+EXCLUDE_PATTERN=${EXCLUDE_PATTERN:1}
+
+# Obtener todos los archivos en el repositorio, excluyendo los archivos binarios y los archivos en la lista de exclusión
+FILES_TO_CHECK=$(git ls-files | grep -v -E "($EXCLUDE_PATTERN)" | xargs -I{} file --mime "{}" 2>/dev/null | grep -v "binary" | cut -d: -f1)
+
+if [ -z "$FILES_TO_CHECK" ]; then
+    success "No hay archivos para verificar."
+else
+    # Verificar cada patrón de API key en los archivos
+    for PATTERN in "${API_PATTERNS[@]}"; do
+        FOUND_FILES=$(grep -l -E "$PATTERN" $FILES_TO_CHECK 2>/dev/null || true)
+        if [ ! -z "$FOUND_FILES" ]; then
+            error_exit "Se encontraron posibles claves API expuestas en los siguientes archivos:\n$FOUND_FILES\n\nPor favor, mueve las claves API a .streamlit/secrets.toml o a variables de entorno."
+        fi
+    done
+    success "No se encontraron claves API expuestas en el código."
+fi
+
+# 3. Verificar que requirements.txt esté actualizado
+echo "📦 Verificando que requirements.txt esté actualizado..."
+
+if [ -f "requirements.txt" ]; then
+    # Verificar la fecha de modificación de requirements.txt
+    REQUIREMENTS_MODIFIED=$(stat -f "%m" requirements.txt 2>/dev/null || stat -c "%Y" requirements.txt 2>/dev/null)
+
+    # Verificar la fecha de modificación de los archivos Python
+    PYTHON_FILES=$(git ls-files "*.py")
+    NEWEST_PYTHON_FILE=$(ls -t $PYTHON_FILES 2>/dev/null | head -n 1)
+
+    if [ ! -z "$NEWEST_PYTHON_FILE" ]; then
+        PYTHON_MODIFIED=$(stat -f "%m" "$NEWEST_PYTHON_FILE" 2>/dev/null || stat -c "%Y" "$NEWEST_PYTHON_FILE" 2>/dev/null)
+
+        if [ "$PYTHON_MODIFIED" -gt "$REQUIREMENTS_MODIFIED" ]; then
+            warning "requirements.txt puede estar desactualizado. Considera actualizarlo con 'pip freeze > requirements.txt'."
+        else
+            success "requirements.txt parece estar actualizado."
+        fi
+    fi
+else
+    warning "No se encontró el archivo requirements.txt. Considera crearlo para documentar las dependencias del proyecto."
+fi
+
+# 4. Verificar que README.md esté actualizado
+echo "📝 Verificando que README.md esté actualizado..."
+
+if [ -f "README.md" ]; then
+    # Verificar la fecha de modificación de README.md
+    README_MODIFIED=$(stat -f "%m" README.md 2>/dev/null || stat -c "%Y" README.md 2>/dev/null)
+
+    # Verificar la fecha de modificación de los archivos Python
+    PYTHON_FILES=$(git ls-files "*.py")
+    NEWEST_PYTHON_FILE=$(ls -t $PYTHON_FILES 2>/dev/null | head -n 1)
+
+    if [ ! -z "$NEWEST_PYTHON_FILE" ]; then
+        PYTHON_MODIFIED=$(stat -f "%m" "$NEWEST_PYTHON_FILE" 2>/dev/null || stat -c "%Y" "$NEWEST_PYTHON_FILE" 2>/dev/null)
+
+        if [ "$PYTHON_MODIFIED" -gt "$README_MODIFIED" ]; then
+            warning "README.md puede estar desactualizado. Considera actualizarlo para reflejar los cambios recientes."
+        else
+            success "README.md parece estar actualizado."
+        fi
+    fi
+else
+    warning "No se encontró el archivo README.md. Considera crearlo para documentar el proyecto."
+fi
+
+# Todas las validaciones pasaron
+echo -e "${GREEN}✅ Todas las validaciones pre-push pasaron exitosamente.${NC}"
+exit 0
