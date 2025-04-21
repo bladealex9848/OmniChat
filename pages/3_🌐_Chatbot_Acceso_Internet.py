@@ -60,9 +60,9 @@ class InternetChatbot:
         memory = ConversationBufferMemory(memory_key="chat_history")
         agent = create_react_agent(self.llm, tools, prompt)
 
-        # Configurar el agente para que no sea verbose (ocultar la cadena de pensamiento)
+        # Configurar el agente para que sea verbose (mostrar la cadena de pensamiento)
         agent_executor = AgentExecutor(
-            agent=agent, tools=tools, memory=memory, verbose=False
+            agent=agent, tools=tools, memory=memory, verbose=True
         )
         return agent_executor, memory
 
@@ -152,11 +152,34 @@ class InternetChatbot:
                     thought_chain = []
 
                     try:
-                        # Intentar obtener respuesta usando el agente
+                        # Preparar el historial de chat para el contexto
+                        chat_history = []
+
+                        # Convertir los mensajes de la sesión en formato para el agente
+                        # Omitir el primer mensaje (saludo) para evitar confusión
+                        for i in range(1, len(st.session_state.messages)):
+                            msg = st.session_state.messages[i]
+                            # Solo incluir el contenido principal, no las cadenas de pensamiento
+                            content = msg["content"]
+                            if "---" in content:
+                                content = content.split("---")[0].strip()
+
+                            if msg["role"] == "user":
+                                chat_history.append({"type": "human", "content": content})
+                            else:
+                                chat_history.append({"type": "ai", "content": content})
+
+                        # Registrar el historial en la cadena de pensamiento
+                        if chat_history:
+                            thought_chain.append("### Historial de conversación")
+                            for msg in chat_history:
+                                thought_chain.append(f"**{msg['type']}**: {msg['content']}")
+
+                        # Intentar obtener respuesta usando el agente con el historial completo
                         result = agent_executor.invoke(
                             {
                                 "input": user_query,
-                                "chat_history": memory.chat_memory.messages,
+                                "chat_history": chat_history,
                             }
                         )
                         response = result["output"]
@@ -243,17 +266,25 @@ class InternetChatbot:
                     # Guardar la cadena de pensamiento completa para esta pregunta
                     st.session_state["thought_chains"][question_id] = thought_chain
 
-                # Añadir la respuesta al historial con la cadena de pensamiento visible automáticamente
+                # Crear una versión combinada de la respuesta con la cadena de pensamiento
+                full_response = response + "\n\n---\n\n**Cadena de pensamiento:**\n"
+
+                # Añadir cada elemento de la cadena de pensamiento a la respuesta completa
+                for thought in st.session_state["thought_chains"].get(question_id, ["No hay cadena de pensamiento disponible"]):
+                    full_response += f"\n{thought}"
+
+                # Añadir la respuesta completa al historial de mensajes
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+                # Mostrar la respuesta con la cadena de pensamiento
                 with st.chat_message("assistant"):
+                    # Mostrar la respuesta principal
                     st.write(response)
 
                     # Mostrar la cadena de pensamiento en un expansor
                     with st.expander("Cadena de pensamiento", expanded=True):
                         for thought in st.session_state["thought_chains"].get(question_id, ["No hay cadena de pensamiento disponible"]):
                             st.markdown(thought)
-
-                # Añadir la respuesta al historial de mensajes
-                st.session_state.messages.append({"role": "assistant", "content": response})
 
                 # Recargar la página para mostrar el historial actualizado
                 st.rerun()
