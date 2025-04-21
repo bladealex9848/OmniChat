@@ -216,6 +216,42 @@ def show_author_info():
     </div>
     """, unsafe_allow_html=True)
 
+    # Versión de la aplicación
+    st.sidebar.markdown("##### Versión")
+    st.sidebar.markdown("""
+    <div class="badge-container">
+        <div class="badge">
+            <span class="badge-label">OmniChat:</span>
+            <span class="badge-value" style="color: #1e7ebf;">v1.0.0</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Enlaces útiles
+    st.sidebar.markdown("##### Enlaces útiles")
+    st.sidebar.markdown("""
+    <div class="badge-container">
+        <a href="https://docs.mistral.ai/" target="_blank" class="badge-link">
+            <div class="badge">
+                <span class="badge-label">Mistral AI:</span>
+                <span class="badge-value" style="color: #0081CB;">Docs</span>
+            </div>
+        </a>
+        <a href="https://docs.streamlit.io/" target="_blank" class="badge-link">
+            <div class="badge">
+                <span class="badge-label">Streamlit:</span>
+                <span class="badge-value" style="color: #FF4B4B;">Docs</span>
+            </div>
+        </a>
+        <a href="https://platform.openai.com/docs" target="_blank" class="badge-link">
+            <div class="badge">
+                <span class="badge-label">OpenAI:</span>
+                <span class="badge-value" style="color: #000000;">Docs</span>
+            </div>
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+
     # Pie de página
     st.sidebar.markdown("---")
     st.sidebar.markdown("""

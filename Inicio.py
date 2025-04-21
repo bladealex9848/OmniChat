@@ -31,22 +31,7 @@ st.write(
 """
 )
 
-# Información sobre el autor en la barra lateral
-st.sidebar.markdown("### Desarrollado por")
-st.sidebar.markdown("Alexander Oviedo Fadul")
-st.sidebar.markdown(
-    "[GitHub](https://github.com/bladealex9848) | [LinkedIn](https://www.linkedin.com/in/alexanderoviedo/)"
-)
-
-# Versión de la aplicación
-st.sidebar.markdown("### Versión")
-st.sidebar.markdown("v1.0.0")
-
-# Enlaces útiles
-st.sidebar.markdown("### Enlaces útiles")
-st.sidebar.markdown("[Documentación de Mistral AI](https://docs.mistral.ai/)")
-st.sidebar.markdown("[Documentación de Streamlit](https://docs.streamlit.io/)")
-st.sidebar.markdown("[Documentación de OpenAI](https://platform.openai.com/docs)")
+# La información del autor ya se muestra a través de show_author_info()
 
 
 st.write(
