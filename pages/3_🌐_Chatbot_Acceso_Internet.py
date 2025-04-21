@@ -128,47 +128,34 @@ class InternetChatbot:
             placeholder="¡Hazme una pregunta sobre eventos actuales!"
         )
         if user_query:
+            # Mostrar la pregunta del usuario
             utils.display_msg(user_query, "user")
+
+            # Crear un mensaje del asistente para mostrar la respuesta
             with st.chat_message("assistant"):
-                # Crear un contenedor para la cadena de pensamiento (oculto por defecto)
-                thought_container = st.container()
-                # Usar nuestro callback personalizado que oculta la cadena de pensamiento
-                custom_cb = CustomStreamlitCallbackHandler(thought_container)
                 # Mostrar indicador de carga
                 with st.status("Buscando información...", expanded=False) as status:
                     try:
+                        # Intentar obtener respuesta usando el agente
                         result = agent_executor.invoke(
                             {
                                 "input": user_query,
                                 "chat_history": memory.chat_memory.messages,
-                            },
-                            {"callbacks": [custom_cb]},
+                            }
                         )
                         response = result["output"]
-                        status.update(
-                            label="¡Información encontrada!", state="complete"
-                        )
-
-                        # Añadir la respuesta al historial
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": response}
-                        )
-                        # Mostrar la respuesta
-                        st.write(response)
 
                     except Exception as e:
-                        # Registrar el error en el log para depuración (no visible para el usuario)
+                        # Si falla el agente, usar búsqueda directa
                         import logging
-
                         logging.error(f"Error en la búsqueda: {str(e)}")
 
-                        # Intentar obtener una respuesta directamente utilizando perform_web_search
+                        # Buscar información
                         search_results = perform_web_search(user_query)
                         raw_search_results = format_search_results(search_results) if search_results else "No se encontraron resultados para la consulta."
 
-                        # Procesar los resultados con el LLM para obtener una respuesta más natural
+                        # Procesar los resultados con el LLM
                         try:
-                            # Crear un prompt para que el LLM procese los resultados
                             prompt_template = f"""Basándote en la siguiente información de búsqueda, responde a la pregunta: '{user_query}'
 
                             RESULTADOS DE BÚSQUEDA:
@@ -178,28 +165,20 @@ class InternetChatbot:
                             No menciones que estás basando tu respuesta en resultados de búsqueda. Responde como si tuvieras el conocimiento directamente."""
 
                             # Usar el LLM para procesar los resultados
-                            processed_response = self.llm.invoke(
-                                prompt_template
-                            ).content
+                            response = self.llm.invoke(prompt_template).content
                         except Exception as llm_error:
                             # Si falla el procesamiento con el LLM, usar los resultados crudos
-                            logging.error(
-                                f"Error al procesar con LLM: {str(llm_error)}"
-                            )
-                            processed_response = raw_search_results
+                            logging.error(f"Error al procesar con LLM: {str(llm_error)}")
+                            response = raw_search_results
 
-                        # Actualizar el estado del indicador de carga
-                        status.update(
-                            label="¡Información encontrada!", state="complete"
-                        )
+                    # Actualizar el estado del indicador de carga
+                    status.update(label="¡Información encontrada!", state="complete")
 
-                        # Mostrar la respuesta procesada al usuario
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": processed_response}
-                        )
-                        # Mostrar la respuesta (en este caso sí es necesario porque no usamos el callback)
-                        # Usamos write en lugar de markdown para mantener consistencia con el resto de la interfaz
-                        st.write(processed_response)
+                # Mostrar la respuesta
+                st.write(response)
+
+                # Añadir la respuesta al historial
+                st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 if __name__ == "__main__":
