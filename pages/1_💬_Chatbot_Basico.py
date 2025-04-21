@@ -9,9 +9,17 @@ from streaming import StreamHandler
 
 from langchain.chains import ConversationChain
 
-# Usar la función setup_page para configurar la página de manera consistente
-utils.setup_page("Chatbot Básico", "💬", "Chatbot")
+# Configurar la página directamente
+st.set_page_config(page_title="Chatbot", page_icon="💬", layout="wide", initial_sidebar_state="expanded")
+st.header("Chatbot Básico")
 st.write("Permite a los usuarios interactuar con el LLM")
+
+# Mostrar información del autor
+try:
+    from sidebar_info import show_author_info
+    show_author_info()
+except ImportError:
+    st.sidebar.warning("No se pudo cargar la información del autor.")
 
 
 class BasicChatbot:

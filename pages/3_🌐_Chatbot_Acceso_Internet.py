@@ -61,15 +61,24 @@ class InternetChatbot:
 
     @utils.enable_chat_history
     def main(self):
-        # Configuración de la página usando la función centralizada
-        utils.setup_page(
-            "Chatbot con Acceso a Internet",
-            "🌐",
-            "ChatNet"
+        # Configuración de la página directamente
+        st.set_page_config(
+            page_title="ChatNet",
+            page_icon="🌐",
+            layout="wide",
+            initial_sidebar_state="expanded"
         )
+        st.header("Chatbot con Acceso a Internet")
         st.write(
             "Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes"
         )
+
+        # Mostrar información del autor
+        try:
+            from sidebar_info import show_author_info
+            show_author_info()
+        except ImportError:
+            st.sidebar.warning("No se pudo cargar la información del autor.")
 
         # Mostrar información sobre las herramientas de búsqueda alternativas
         with st.sidebar.expander("ℹ️ Información sobre búsquedas"):
