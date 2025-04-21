@@ -114,8 +114,10 @@ class InternetChatbot:
         if user_query:
             utils.display_msg(user_query, "user")
             with st.chat_message("assistant"):
+                # Crear un contenedor para la cadena de pensamiento (oculto por defecto)
+                thought_container = st.container()
                 # Usar nuestro callback personalizado que oculta la cadena de pensamiento
-                custom_cb = CustomStreamlitCallbackHandler(st.container())
+                custom_cb = CustomStreamlitCallbackHandler(thought_container)
                 # Mostrar indicador de carga
                 with st.status("Buscando información...", expanded=False) as status:
                     try:
@@ -131,11 +133,12 @@ class InternetChatbot:
                             label="¡Información encontrada!", state="complete"
                         )
 
-                        # Mostrar respuesta
+                        # La respuesta ya se muestra en el callback personalizado
+                        # Solo guardamos el mensaje en el historial
                         st.session_state.messages.append(
                             {"role": "assistant", "content": response}
                         )
-                        st.write(response)
+                        # No es necesario mostrar la respuesta aquí, ya se muestra en el callback
 
                     except Exception as e:
                         # Registrar el error en el log para depuración (no visible para el usuario)
@@ -178,7 +181,8 @@ class InternetChatbot:
                         st.session_state.messages.append(
                             {"role": "assistant", "content": processed_response}
                         )
-                        st.write(processed_response)
+                        # Mostrar la respuesta (en este caso sí es necesario porque no usamos el callback)
+                        st.markdown(processed_response)
 
 
 if __name__ == "__main__":

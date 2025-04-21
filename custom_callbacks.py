@@ -23,6 +23,7 @@ class CustomStreamlitCallbackHandler(BaseCallbackHandler):
         """
         self.container = container or st.container()
         self._current_thought = ""
+        self.thoughts = []
         self.show_intermediate = False  # Por defecto, no mostrar pasos intermedios
 
     def on_llm_start(
@@ -70,8 +71,14 @@ class CustomStreamlitCallbackHandler(BaseCallbackHandler):
 
     def on_tool_end(self, output: str, **kwargs: Any) -> None:
         """Método llamado cuando una herramienta termina de ejecutarse."""
-        # No mostramos nada cuando la herramienta termina
-        pass
+        # Guardar el resultado en la lista de pensamientos
+        thought = f"Resultado: {output}\n"
+        self.thoughts.append(thought)
+
+        # Si se ha activado la visualización de pasos intermedios, mostrar el resultado
+        if self.show_intermediate:
+            with self.container:
+                st.markdown(f"**Resultado:** {output}")
 
     def on_tool_error(
         self, error: Union[Exception, KeyboardInterrupt], **kwargs: Any
@@ -88,10 +95,32 @@ class CustomStreamlitCallbackHandler(BaseCallbackHandler):
 
     def on_agent_action(self, action: Dict[str, Any], **kwargs: Any) -> Any:
         """Método llamado cuando un agente toma una acción."""
-        # No mostramos acciones del agente
-        pass
+        # Guardar la acción en la lista de pensamientos
+        thought = f"Acción: {action.get('tool', 'Desconocida')}\nEntrada: {action.get('tool_input', '')}\n"
+        self.thoughts.append(thought)
+
+        # Si se ha activado la visualización de pasos intermedios, mostrar la acción
+        if self.show_intermediate:
+            with self.container:
+                st.markdown(f"**Acción:** {action.get('tool', 'Desconocida')}")
+                st.markdown(f"**Entrada:** {action.get('tool_input', '')}")
 
     def on_agent_finish(self, finish: Dict[str, Any], **kwargs: Any) -> None:
         """Método llamado cuando un agente termina."""
-        # No mostramos nada cuando el agente termina
-        pass
+        # Mostrar la respuesta final
+        output = finish.get("output", "No se encontró una respuesta.")
+
+        # Guardar la respuesta final en la lista de pensamientos
+        thought = f"Respuesta final: {output}\n"
+        self.thoughts.append(thought)
+
+        # Mostrar la respuesta final
+        st.markdown(f"{output}")
+
+        # Añadir un botón para mostrar/ocultar la cadena de pensamiento
+        if self.thoughts:
+            with self.container:
+                if st.button("Mostrar cadena de pensamiento", key="show_thoughts"):
+                    st.markdown("### Cadena de pensamiento:")
+                    for t in self.thoughts:
+                        st.markdown(f"```\n{t}\n```")
