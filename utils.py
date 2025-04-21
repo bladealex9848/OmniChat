@@ -11,9 +11,8 @@ from langchain_openai import ChatOpenAI
 # decorator
 # Decorador para habilitar el historial de chat
 def enable_chat_history(func):
-    if os.environ.get("OPENAI_API_KEY"):
-
-        # to clear chat history after swtching chatbot
+    def execute(*args, **kwargs):
+        # to clear chat history after switching chatbot
         # Limpiar el historial del chat después de cambiar el chatbot
         current_page = func.__qualname__
         if "current_page" not in st.session_state:
@@ -38,8 +37,8 @@ def enable_chat_history(func):
         for msg in st.session_state["messages"]:
             st.chat_message(msg["role"]).write(msg["content"])
 
-    def execute(*args, **kwargs):
-        func(*args, **kwargs)
+        # Ejecutar la función decorada
+        return func(*args, **kwargs)
 
     return execute
 
