@@ -72,3 +72,12 @@ def display_msg(msg, author):
     """
     st.session_state.messages.append({"role": author, "content": msg})
     st.chat_message(author).write(msg)
+
+
+def sync_st_session():
+    """
+    Sincroniza el estado de la sesión de Streamlit.
+    Esto es útil para asegurar que todos los valores de la sesión estén actualizados.
+    """
+    for k, v in st.session_state.items():
+        st.session_state[k] = v
