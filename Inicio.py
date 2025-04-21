@@ -1,7 +1,13 @@
 import streamlit as st
+import os
+import sys
+
+# Añadir el directorio raíz al path para poder importar utils
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import utils
 
 st.set_page_config(
-    page_title="OmniChat: Laboratorio de IA", page_icon="🤖", layout="wide"
+    page_title="OmniChat: Laboratorio de IA", page_icon="🤖", layout="wide", initial_sidebar_state="expanded"
 )
 
 st.header("OmniChat: Laboratorio de Herramientas de IA")
@@ -98,3 +104,6 @@ with st.expander("ℹ️ Sistema de respaldo para búsquedas en internet"):
     indicando que puede no estar completamente actualizada.
     """
     )
+
+# Mostrar información del autor en la barra lateral
+utils.show_author_info()

@@ -17,11 +17,7 @@ from search_services import perform_web_search, format_search_results
 # Importar nuestro callback personalizado
 from custom_callbacks import CustomStreamlitCallbackHandler
 
-st.set_page_config(page_title="ChatNet", page_icon="🌐")
-st.header("Chatbot con Acceso a Internet")
-st.write(
-    "Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes"
-)
+# La configuración de la página se ha movido al método main
 
 
 class InternetChatbot:
@@ -65,6 +61,16 @@ class InternetChatbot:
 
     @utils.enable_chat_history
     def main(self):
+        # Configuración de la página
+        st.set_page_config(page_title="ChatNet", page_icon="🌐", initial_sidebar_state="expanded")
+        st.header("Chatbot con Acceso a Internet")
+        st.write(
+            "Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes"
+        )
+
+        # Mostrar información del autor en la barra lateral
+        utils.show_author_info()
+
         # Mostrar información sobre las herramientas de búsqueda alternativas
         with st.sidebar.expander("ℹ️ Información sobre búsquedas"):
             st.markdown(
