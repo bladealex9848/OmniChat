@@ -198,7 +198,8 @@ class InternetChatbot:
                             {"role": "assistant", "content": processed_response}
                         )
                         # Mostrar la respuesta (en este caso sí es necesario porque no usamos el callback)
-                        st.markdown(processed_response)
+                        # Usamos write en lugar de markdown para mantener consistencia con el resto de la interfaz
+                        st.write(processed_response)
 
 
 if __name__ == "__main__":
