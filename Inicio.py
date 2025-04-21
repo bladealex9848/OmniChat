@@ -6,12 +6,23 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import utils
 
-# Configurar la página usando la función centralizada
-utils.setup_page(
-    "OmniChat: Laboratorio de Herramientas de IA",
-    "🤖",
-    "OmniChat: Laboratorio de IA"
+# Configurar la página directamente
+st.set_page_config(
+    page_title="OmniChat: Laboratorio de IA",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Mostrar el título
+st.header("OmniChat: Laboratorio de Herramientas de IA")
+
+# Mostrar información del autor
+try:
+    from sidebar_info import show_author_info
+    show_author_info()
+except ImportError:
+    st.sidebar.warning("No se pudo cargar la información del autor.")
 
 st.write(
     """
