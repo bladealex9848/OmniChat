@@ -3,8 +3,17 @@ import os
 
 # Añadir el directorio raíz al path para poder importar utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import utils
 import streamlit as st
+
+# Configuración de la página (debe ser la primera llamada a Streamlit)
+st.set_page_config(
+    page_title="ChatNet",
+    page_icon="🌐",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+import utils
 from langchain import hub
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
@@ -16,8 +25,6 @@ from search_services import perform_web_search, format_search_results
 
 # Importar nuestro callback personalizado
 from custom_callbacks import CustomStreamlitCallbackHandler
-
-# La configuración de la página se ha movido al método main
 
 
 class InternetChatbot:
@@ -61,13 +68,7 @@ class InternetChatbot:
 
     @utils.enable_chat_history
     def main(self):
-        # Configuración de la página directamente
-        st.set_page_config(
-            page_title="ChatNet",
-            page_icon="🌐",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
+        # La configuración de la página ya se ha realizado al inicio del script
         st.header("Chatbot con Acceso a Internet")
         st.write(
             "Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes"
