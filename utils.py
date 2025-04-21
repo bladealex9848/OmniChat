@@ -152,6 +152,41 @@ def sync_st_session():
         st.session_state[k] = v
 
 
+def setup_page(title, icon, page_title=None, show_author=True):
+    """
+    Configura la página de Streamlit de manera consistente.
+
+    Args:
+        title (str): Título principal que se mostrará en la página
+        icon (str): Icono para la página (emoji)
+        page_title (str, optional): Título de la pestaña del navegador. Si es None, se usa el title.
+        show_author (bool, optional): Si se debe mostrar la información del autor en la barra lateral.
+    """
+    if page_title is None:
+        page_title = title
+
+    # Configurar la página
+    st.set_page_config(
+        page_title=page_title,
+        page_icon=icon,
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+
+    # Mostrar el título
+    st.header(title)
+
+    # Mostrar información del autor si se solicita
+    if show_author:
+        try:
+            # Intentar importar la función show_author_info
+            from sidebar_info import show_author_info
+            show_author_info()
+        except ImportError:
+            # Si no se puede importar, no mostrar la información del autor
+            pass
+
+
 def get_openrouter_free_models() -> List[Dict[str, Any]]:
     """
     Obtiene la lista de modelos multimodales GRATUITOS disponibles en OpenRouter

@@ -4,7 +4,6 @@ import os
 # Añadir el directorio raíz al path para poder importar utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import utils
-from sidebar_info import show_author_info
 import streamlit as st
 from langchain import hub
 from langchain_openai import ChatOpenAI
@@ -62,15 +61,15 @@ class InternetChatbot:
 
     @utils.enable_chat_history
     def main(self):
-        # Configuración de la página
-        st.set_page_config(page_title="ChatNet", page_icon="🌐", initial_sidebar_state="expanded")
-        st.header("Chatbot con Acceso a Internet")
+        # Configuración de la página usando la función centralizada
+        utils.setup_page(
+            "Chatbot con Acceso a Internet",
+            "🌐",
+            "ChatNet"
+        )
         st.write(
             "Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes"
         )
-
-        # Mostrar información del autor en la barra lateral
-        show_author_info()
 
         # Mostrar información sobre las herramientas de búsqueda alternativas
         with st.sidebar.expander("ℹ️ Información sobre búsquedas"):

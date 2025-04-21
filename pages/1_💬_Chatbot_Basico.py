@@ -9,10 +9,8 @@ from streaming import StreamHandler
 
 from langchain.chains import ConversationChain
 
-st.set_page_config(page_title="Chatbot", page_icon="💬")
-# st.header('Basic Chatbot')
-st.title("Chatbot Básico")
-# st.write('Allows users to interact with the LLM')
+# Usar la función setup_page para configurar la página de manera consistente
+utils.setup_page("Chatbot Básico", "💬", "Chatbot")
 st.write("Permite a los usuarios interactuar con el LLM")
 
 

@@ -130,10 +130,14 @@ def show_author_info():
     </div>
     """, unsafe_allow_html=True)
 
-    # Contador de visitantes
+    # Contador de visitantes con estilo mejorado
     st.sidebar.markdown("""
     <div style="margin-top: 10px; text-align: center;">
-        <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fomnichat.streamlit.app&label=Visitantes&labelColor=%235d5d5d&countColor=%231e7ebf&style=flat" alt="Visitantes">
+        <div style="display: inline-block; background-color: #f0f2f6; border-radius: 5px; padding: 5px 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <span style="font-weight: 500; color: #5d5d5d;">Visitantes:</span>
+            <img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fomnichat.streamlit.app&countColor=%231e7ebf&style=flat&labelStyle=none"
+                 style="height: 20px; vertical-align: middle; margin-left: 5px;" alt="Contador de visitantes">
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
