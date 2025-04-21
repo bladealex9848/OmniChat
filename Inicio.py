@@ -79,17 +79,20 @@ usando la API de OCR (Reconocimiento Óptico de Caracteres) de Mistral AI.
 with st.expander("ℹ️ Sistema de respaldo para búsquedas en internet"):
     st.markdown(
         """
-    ### Herramientas de búsqueda con respaldo transparente
+    ### Sistema de búsqueda con respaldo automático
 
     Este laboratorio implementa un sistema de respaldo automático y transparente para búsquedas en internet:
 
-    1. **DuckDuckGo** (principal)
-    2. **Google** (respaldo mediante scraping)
-    3. **Bing** (respaldo mediante scraping)
-    4. **DuckDuckGo HTML** (respaldo final mediante scraping)
+    **Métodos gratuitos (primero):**
+    1. **DuckDuckGo API** (método principal)
+    2. **DuckDuckGo HTML** (respaldo gratuito)
+
+    **APIs como respaldo:**
+    3. **Google PSE API** (primera API de respaldo)
+    4. **Exa API** (segunda API de respaldo)
 
     El sistema cambia automáticamente entre métodos de búsqueda cuando uno falla, sin mostrar errores al usuario.
-    Todos los métodos son gratuitos y no requieren API keys adicionales.
+    El sistema prioriza los métodos gratuitos y solo utiliza las APIs como respaldo si es necesario.
 
     Si todos los métodos fallan, el sistema proporcionará una respuesta basada en información básica almacenada,
     indicando que puede no estar completamente actualizada.

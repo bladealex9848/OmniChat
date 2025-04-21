@@ -33,10 +33,28 @@ Para instalar los git hooks en el repositorio actual, ejecuta:
 
 ### Instalación Global
 
-Para instalar estos hooks globalmente para todos tus repositorios, ejecuta:
+Para instalar estos hooks globalmente para todos tus repositorios (actual y futuros), ejecuta:
 
 ```bash
-git config --global core.hooksPath $PWD/scripts/git-hooks
+./scripts/install-global-git-hooks.sh
+```
+
+Esto copiará los scripts a `~/.git-hooks/` y configurará Git para usar esa ubicación permanente.
+
+Alternativamente, puedes hacer la instalación global manualmente:
+
+```bash
+# Crear el directorio para los hooks globales
+mkdir -p ~/.git-hooks
+
+# Copiar los scripts
+cp scripts/git-hooks/* ~/.git-hooks/
+
+# Hacer los scripts ejecutables
+chmod +x ~/.git-hooks/*
+
+# Configurar Git para usar la ubicación permanente
+git config --global core.hooksPath ~/.git-hooks
 ```
 
 Para volver a la configuración por defecto de git hooks, ejecuta:

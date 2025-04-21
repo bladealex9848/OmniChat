@@ -8,12 +8,11 @@ import streamlit as st
 from langchain import hub
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
-from langchain_community.tools import DuckDuckGoSearchRun
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.tools import Tool
 
-# Importar herramienta de búsqueda con respaldo
-import search_utils
+# Importar funciones de búsqueda con respaldo
+from search_services import perform_web_search, format_search_results
 
 # Importar nuestro callback personalizado
 from custom_callbacks import CustomStreamlitCallbackHandler
@@ -31,12 +30,20 @@ class InternetChatbot:
         self.llm = utils.configure_llm()
 
     def setup_agent(self):
-        # Usar directamente nuestra herramienta de búsqueda con respaldo
-        # Esto evita mostrar errores al usuario y garantiza que siempre tengamos una respuesta
-        fallback_search = search_utils.get_search_tool()
+        # Crear una función de búsqueda que utiliza perform_web_search y format_search_results
+        def search_function(query: str) -> str:
+            # Realizar la búsqueda utilizando los métodos que funcionan correctamente
+            search_results = perform_web_search(query)
+            if search_results:
+                # Formatear los resultados para que sean legibles
+                return format_search_results(search_results)
+            else:
+                return "No se encontraron resultados para la consulta."
+
+        # Crear la herramienta de búsqueda
         search_tool = Tool(
             name="InternetSearch",
-            func=fallback_search.run,
+            func=search_function,
             description="Útil cuando necesitas responder preguntas sobre eventos actuales. Debes hacer preguntas específicas",
         )
 
@@ -62,18 +69,21 @@ class InternetChatbot:
         with st.sidebar.expander("ℹ️ Información sobre búsquedas"):
             st.markdown(
                 """
-            ### Herramientas de búsqueda gratuitas
+            ### Sistema de búsqueda con respaldo automático
 
-            Este chatbot utiliza múltiples herramientas de búsqueda gratuitas con un sistema de respaldo:
+            Este chatbot utiliza múltiples herramientas de búsqueda con un sistema de respaldo:
 
-            1. **DuckDuckGo** (principal)
-            2. **Google** (respaldo mediante scraping)
-            3. **Bing** (respaldo mediante scraping)
-            4. **DuckDuckGo HTML** (respaldo final mediante scraping)
+            **Métodos gratuitos (primero):**
+            1. **DuckDuckGo API** (método principal)
+            2. **DuckDuckGo HTML** (respaldo gratuito)
+
+            **APIs como respaldo:**
+            3. **Google PSE API** (primera API de respaldo)
+            4. **Exa API** (segunda API de respaldo)
 
             Si experimentas errores de "rate limit", el sistema intentará usar automáticamente los métodos alternativos.
 
-            > **Nota**: Todos los métodos de búsqueda son gratuitos y no requieren API keys.
+            > **Nota**: El sistema prioriza los métodos gratuitos y solo utiliza las APIs como respaldo si es necesario.
             """
             )
 
@@ -133,9 +143,9 @@ class InternetChatbot:
 
                         logging.error(f"Error en la búsqueda: {str(e)}")
 
-                        # Intentar obtener una respuesta directamente de la herramienta de búsqueda
-                        fallback_search = search_utils.get_search_tool()
-                        raw_search_results = fallback_search.run(user_query)
+                        # Intentar obtener una respuesta directamente utilizando perform_web_search
+                        search_results = perform_web_search(user_query)
+                        raw_search_results = format_search_results(search_results) if search_results else "No se encontraron resultados para la consulta."
 
                         # Procesar los resultados con el LLM para obtener una respuesta más natural
                         try:
