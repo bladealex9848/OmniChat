@@ -34,11 +34,17 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import DocArrayInMemorySearch
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# Encabezado en Español
+# Configuración de la página (debe ser la primera llamada a Streamlit)
 st.set_page_config(page_title="ChatWebsite", page_icon="🔗")
-st.title("Chatea con Sitios Web y Búsqueda")
-st.write("Permite al chatbot interactuar con el contenido de sitios web y realizar búsquedas en internet.")
 
+# Inicializar mensajes si no existen
+if "website_chat_messages" not in st.session_state:
+    st.session_state["website_chat_messages"] = [
+        {
+            "role": "assistant",
+            "content": "Hola, soy un asistente virtual. ¿En qué puedo ayudarte hoy?",
+        }
+    ]
 
 class ChatbotWeb:
 
@@ -163,8 +169,12 @@ class ChatbotWeb:
         )
         return qa_chain
 
-    @utils.enable_chat_history
     def main(self):
+        # 1. Título y subtítulo (siempre visible en la parte superior)
+        st.title("Chatea con Sitios Web y Búsqueda")
+        st.write("Permite al chatbot interactuar con el contenido de sitios web y realizar búsquedas en internet.")
+        
+        # Inicializar la lista de sitios web si no existe
         if "websites" not in st.session_state:
             st.session_state["websites"] = []
 
@@ -194,6 +204,7 @@ class ChatbotWeb:
                 El sistema intentará usar estos servicios en orden hasta obtener resultados.
                 """)
 
+        # Configuración de sitios web
         st.sidebar.markdown("### Sitios Web")
         web_url = st.sidebar.text_input(
             label="Introduce la URL del sitio web",
@@ -214,6 +225,12 @@ class ChatbotWeb:
 
         websites = list(set(st.session_state["websites"]))
 
+        # Mostrar sitios web añadidos
+        if websites:
+            st.sidebar.info(
+                "Sitios Web:\n" + "\n".join([f"- {url}" for url in websites])
+            )
+
         # Mostrar información del autor en la barra lateral (al final)
         try:
             from sidebar_info import show_author_info
@@ -228,108 +245,149 @@ class ChatbotWeb:
             )
             st.stop()
 
-        # Mostrar sitios web añadidos
+        # Preparar el sistema de QA si hay sitios web
+        qa_chain = None
         if websites:
-            st.sidebar.info(
-                "Sitios Web:\n" + "\n".join([f"- {url}" for url in websites])
-            )
-
             with st.spinner("Procesando sitios web..."):
                 vectordb = self.setup_vectordb(websites)
-            qa_chain = self.setup_qa_chain(vectordb)
-        else:
-            # Si no hay sitios web pero la búsqueda está habilitada
-            qa_chain = None
+                qa_chain = self.setup_qa_chain(vectordb)
+        elif self.use_search:
             st.info("Modo de búsqueda en internet activado. No se han añadido sitios web.")
 
-        # Cambiar el placeholder según el modo
+        # 2. Mostrar mensajes del historial (saludo inicial y conversación)
+        for msg in st.session_state["website_chat_messages"]:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+
+        # 3. Campo de entrada para nuevas preguntas (al final)
         placeholder = "¡Hazme una pregunta!" if self.use_search else "¡Hazme una pregunta sobre los sitios web!"
-
         user_query = st.chat_input(placeholder=placeholder)
+        
         if user_query:
-            utils.display_msg(user_query, "user")
+            # Añadir mensaje del usuario al historial
+            st.session_state["website_chat_messages"].append({"role": "user", "content": user_query})
+            
+            # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
+            with st.chat_message("user"):
+                st.write(user_query)
 
-            # Modo de búsqueda web
-            if self.use_search and (not websites or qa_chain is None):
-                # Realizar búsqueda web
-                search_results = self.perform_web_search(user_query)
+            # Crear un contenedor para mostrar el estado del procesamiento
+            processing_container = st.container()
+            
+            # Generar respuesta
+            with st.chat_message("assistant"):
+                # Procesar según el modo (búsqueda web, sitios web o híbrido)
+                if self.use_search and (not websites or qa_chain is None):
+                    # Modo de búsqueda web
+                    with processing_container:
+                        search_results = self.perform_web_search(user_query)
+                    
+                    if search_results:
+                        # Formatear resultados para mostrarlos
+                        formatted_results = self.format_search_results(search_results)
+                        
+                        # Construir prompt para el LLM con los resultados de búsqueda
+                        prompt = f"""Basado en la siguiente información de búsqueda, responde a la pregunta del usuario.
 
-                if search_results:
-                    # Formatear resultados para mostrarlos
-                    formatted_results = self.format_search_results(search_results)
+                        Pregunta: {user_query}
 
-                    # Construir prompt para el LLM con los resultados de búsqueda
-                    prompt = f"""Basado en la siguiente información de búsqueda, responde a la pregunta del usuario.
+                        Información de búsqueda:
+                        {formatted_results}
 
-                    Pregunta: {user_query}
-
-                    Información de búsqueda:
-                    {formatted_results}
-
-                    Responde de manera concisa y clara, citando las fuentes cuando sea relevante.
-                    """
-
-                    # Generar respuesta con el LLM
-                    with st.chat_message("assistant"):
-                        st_cb = StreamHandler(st.empty())
-                        response = self.llm.invoke(prompt, streaming=True, callbacks=[st_cb])
-                        st.session_state.messages.append(
+                        Responde de manera concisa y clara, citando las fuentes cuando sea relevante.
+                        """
+                        
+                        # Procesar la consulta en un contenedor oculto
+                        with st.container():
+                            # Crear un elemento vacío que no se mostrará al usuario
+                            hidden_element = st.empty()
+                            # Usar el StreamHandler con el elemento oculto
+                            st_cb = StreamHandler(hidden_element)
+                            # Invocar el LLM
+                            response = self.llm.invoke(prompt, streaming=True, callbacks=[st_cb])
+                            # Limpiar el elemento oculto
+                            hidden_element.empty()
+                        
+                        # Mostrar la respuesta una sola vez
+                        st.write(response)
+                        
+                        # Añadir respuesta al historial
+                        st.session_state["website_chat_messages"].append(
                             {"role": "assistant", "content": response}
                         )
-
-                        # Mostrar fuentes de información
-                        st.markdown("---")
-                        st.markdown("### Fuentes de información")
+                        
+                        # Mostrar fuentes de información en popovers
+                        st.markdown("**Fuentes de información:**")
                         for idx, result in enumerate(search_results, 1):
                             service = result.get("service", "Búsqueda web")
                             ref_title = f":blue[Fuente {idx}: *{result['title']}* ({service})]"
-                            with st.expander(ref_title):
+                            with st.popover(ref_title):
                                 st.markdown(f"**Extracto:** {result['snippet']}")
                                 st.markdown(f"**URL:** [{result['link']}]({result['link']})")
-                else:
-                    # Si no hay resultados de búsqueda
-                    with st.chat_message("assistant"):
-                        st.write("Lo siento, no pude encontrar información relevante para tu pregunta. Por favor, intenta reformular tu consulta o añade sitios web específicos para obtener mejores resultados.")
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": "Lo siento, no pude encontrar información relevante para tu pregunta. Por favor, intenta reformular tu consulta o añade sitios web específicos para obtener mejores resultados."}
+                    else:
+                        # Si no hay resultados de búsqueda
+                        response = "Lo siento, no pude encontrar información relevante para tu pregunta. Por favor, intenta reformular tu consulta o añade sitios web específicos para obtener mejores resultados."
+                        st.write(response)
+                        st.session_state["website_chat_messages"].append(
+                            {"role": "assistant", "content": response}
                         )
-
-            # Modo de sitios web (usando qa_chain)
-            elif websites and qa_chain is not None:
-                with st.chat_message("assistant"):
-                    st_cb = StreamHandler(st.empty())
-                    result = qa_chain.invoke(
-                        {"question": user_query}, {"callbacks": [st_cb]}
-                    )
-                    response = result["answer"]
-                    st.session_state.messages.append(
+                
+                # Modo de sitios web (usando qa_chain)
+                elif websites and qa_chain is not None:
+                    # Procesar la consulta en un contenedor oculto
+                    with st.container():
+                        # Crear un elemento vacío que no se mostrará al usuario
+                        hidden_element = st.empty()
+                        # Usar el StreamHandler con el elemento oculto
+                        st_cb = StreamHandler(hidden_element)
+                        # Invocar la cadena de QA
+                        result = qa_chain.invoke(
+                            {"question": user_query}, {"callbacks": [st_cb]}
+                        )
+                        # Obtener la respuesta
+                        response = result["answer"]
+                        # Limpiar el elemento oculto
+                        hidden_element.empty()
+                    
+                    # Mostrar la respuesta una sola vez
+                    st.write(response)
+                    
+                    # Añadir respuesta al historial
+                    st.session_state["website_chat_messages"].append(
                         {"role": "assistant", "content": response}
                     )
-
-                    # Mostrar referencias a sitios web
-                    st.markdown("---")
-                    st.markdown("### Fuentes de sitios web")
+                    
+                    # Mostrar referencias a sitios web en popovers
+                    st.markdown("**Fuentes de sitios web:**")
                     for idx, doc in enumerate(result["source_documents"], 1):
                         url = doc.metadata["source"]
                         ref_title = f":blue[Referencia {idx}: *{url}*]"
-                        with st.expander(ref_title):
-                            st.write(doc.page_content)
-
-            # Modo híbrido: sitios web + búsqueda
-            elif self.use_search and websites and qa_chain is not None:
-                # Primero intentar con los sitios web
-                with st.chat_message("assistant"):
-                    st_cb = StreamHandler(st.empty())
-                    result = qa_chain.invoke(
-                        {"question": user_query}, {"callbacks": [st_cb]}
-                    )
-                    response = result["answer"]
-
+                        with st.popover(ref_title):
+                            st.caption(doc.page_content)
+                
+                # Modo híbrido: sitios web + búsqueda
+                elif self.use_search and websites and qa_chain is not None:
+                    # Primero intentar con los sitios web
+                    with st.container():
+                        # Crear un elemento vacío que no se mostrará al usuario
+                        hidden_element = st.empty()
+                        # Usar el StreamHandler con el elemento oculto
+                        st_cb = StreamHandler(hidden_element)
+                        # Invocar la cadena de QA
+                        result = qa_chain.invoke(
+                            {"question": user_query}, {"callbacks": [st_cb]}
+                        )
+                        # Obtener la respuesta
+                        response = result["answer"]
+                        # Limpiar el elemento oculto
+                        hidden_element.empty()
+                    
                     # Si la respuesta es vaga o indica falta de información, complementar con búsqueda web
                     if "no tengo suficiente información" in response.lower() or "no puedo responder" in response.lower():
-                        st.info("Complementando con búsqueda en internet...")
-                        search_results = self.perform_web_search(user_query)
-
+                        with processing_container:
+                            st.info("Complementando con búsqueda en internet...")
+                            search_results = self.perform_web_search(user_query)
+                        
                         if search_results:
                             formatted_results = self.format_search_results(search_results)
                             prompt = f"""Basado en la siguiente información adicional de búsqueda, mejora tu respuesta a la pregunta del usuario.
@@ -343,32 +401,39 @@ class ChatbotWeb:
 
                             Proporciona una respuesta mejorada y más completa.
                             """
-
-                            improved_response = self.llm.invoke(prompt)
-                            response = improved_response
-
+                            
+                            # Procesar en un contenedor oculto
+                            with st.container():
+                                improved_response = self.llm.invoke(prompt)
+                                response = improved_response
+                            
                             # Mostrar fuentes de búsqueda web
-                            st.markdown("---")
-                            st.markdown("### Fuentes adicionales de internet")
+                            st.markdown("**Fuentes adicionales de internet:**")
                             for idx, result in enumerate(search_results, 1):
                                 service = result.get("service", "Búsqueda web")
                                 ref_title = f":blue[Fuente adicional {idx}: *{result['title']}* ({service})]"
-                                with st.expander(ref_title):
+                                with st.popover(ref_title):
                                     st.markdown(f"**Extracto:** {result['snippet']}")
                                     st.markdown(f"**URL:** [{result['link']}]({result['link']})")
-
-                    st.session_state.messages.append(
+                    
+                    # Mostrar la respuesta una sola vez
+                    st.write(response)
+                    
+                    # Añadir respuesta al historial
+                    st.session_state["website_chat_messages"].append(
                         {"role": "assistant", "content": response}
                     )
-
+                    
                     # Mostrar referencias a sitios web
-                    st.markdown("---")
-                    st.markdown("### Fuentes de sitios web")
+                    st.markdown("**Fuentes de sitios web:**")
                     for idx, doc in enumerate(result["source_documents"], 1):
                         url = doc.metadata["source"]
                         ref_title = f":blue[Referencia {idx}: *{url}*]"
-                        with st.expander(ref_title):
-                            st.write(doc.page_content)
+                        with st.popover(ref_title):
+                            st.caption(doc.page_content)
+            
+            # Limpiar el contenedor de procesamiento
+            processing_container.empty()
 
 
 if __name__ == "__main__":
