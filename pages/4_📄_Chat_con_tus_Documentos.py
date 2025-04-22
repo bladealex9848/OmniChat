@@ -301,7 +301,11 @@ class CustomDataChatbot:
         except ImportError:
             st.sidebar.warning("No se pudo cargar la información del autor.")
         
-        # Instrucciones específicas para el chat con documentos
+        # Primero configurar el LLM en la barra lateral
+        st.sidebar.markdown("### 🤖 Selecciona el modelo")
+        self.llm = utils.configure_llm()
+        
+        # Luego mostrar instrucciones específicas para el chat con documentos
         with st.sidebar.expander("📜 Instrucciones de uso", expanded=True):
             st.markdown("""
             ### Cómo usar el Chat con Documentos
@@ -321,7 +325,7 @@ class CustomDataChatbot:
             - El OCR funciona mejor con documentos de buena calidad
             """)
         
-        # Entradas del usuario en la barra lateral
+        # Finalmente, entradas del usuario en la barra lateral
         st.sidebar.markdown("### 📜 Cargar documentos")
         uploaded_files = st.sidebar.file_uploader(
             label="Selecciona archivos PDF", type=["pdf"], accept_multiple_files=True
@@ -356,10 +360,11 @@ class CustomDataChatbot:
                 with st.chat_message("user"):
                     st.write(user_query)
                 
+                # Crear un contenedor para mostrar el estado del procesamiento
+                processing_container = st.empty()
+                
                 # Mostrar un mensaje de procesamiento
-                with st.status(
-                    "Procesando documentos y preparando respuesta...", expanded=True
-                ) as status:
+                with processing_container.status("Procesando documentos y preparando respuesta...", expanded=True) as status:
                     status.update(label="Analizando documentos PDF...", state="running")
                     qa_chain = self.setup_qa_chain(uploaded_files)
 
@@ -378,6 +383,9 @@ class CustomDataChatbot:
                             {"role": "assistant", "content": response}
                         )
                         
+                        # Mostrar la respuesta directamente
+                        st.write(response)
+                        
                         # Para mostrar referencias en un expander contraído
                         with st.expander("Fuentes de información", expanded=False):
                             st.markdown("### Fuentes de información")
@@ -393,9 +401,14 @@ class CustomDataChatbot:
                                         f"No se pudo mostrar la referencia {idx}: Falta información en los metadatos."
                                     )
 
+                    # Actualizar el estado final
                     status.update(
                         label="¡Respuesta generada con éxito!", state="complete"
                     )
+                
+                # Limpiar el contenedor de procesamiento para evitar duplicación
+                processing_container.empty()
+                
             except Exception as e:
                 st.error(f"Error al procesar la consulta: {str(e)}")
                 st.info("Intenta con una pregunta diferente o carga otros documentos.")
