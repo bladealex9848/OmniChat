@@ -30,6 +30,17 @@ class MistralOCRApp:
         self.mistral_api_key = None
         self.max_file_size = 5 * 1024 * 1024  # 5 MB en bytes
 
+    def save_file(self, file):
+        """Guarda un archivo subido en una ubicación temporal"""
+        folder = "tmp"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        file_path = f"./{folder}/{file.name}"
+        with open(file_path, "wb") as f:
+            f.write(file.getvalue())
+        return file_path
+
     def get_image_base64(self, image):
         """Convierte una imagen PIL a base64"""
         buffered = io.BytesIO()
@@ -114,11 +125,13 @@ class MistralOCRApp:
             return None
 
     def display_file_uploader(self):
-        """Muestra el selector de archivos"""
+        """Muestra el selector de archivos en la barra lateral"""
         # Usar un nombre de key único para evitar conflictos
         unique_key = f"ocr_file_uploader_{id(self)}"
 
-        uploaded_file = st.file_uploader(
+        # Mostrar el selector de archivos en la barra lateral
+        st.sidebar.markdown("### 📷 Cargar archivos para OCR")
+        uploaded_file = st.sidebar.file_uploader(
             "Sube una imagen o PDF para extraer texto",
             type=["jpg", "jpeg", "png", "pdf"],
             key=unique_key,
@@ -128,17 +141,26 @@ class MistralOCRApp:
         if uploaded_file is not None:
             # Verificar tamaño del archivo
             if uploaded_file.size > self.max_file_size:
-                st.error(f"El archivo es demasiado grande. El tamaño máximo permitido es 5 MB.")
+                st.sidebar.error(f"El archivo es demasiado grande. El tamaño máximo permitido es 5 MB.")
                 return None
 
-            # Mostrar vista previa
+            # Mostrar información del archivo en la barra lateral
+            st.sidebar.success(f"✅ Archivo cargado correctamente")
+            st.sidebar.info(f"📄 {uploaded_file.name} ({round(uploaded_file.size/1024, 1)} KB)")
+
+            # Determinar el tipo de archivo
             file_type = uploaded_file.type
             if file_type.startswith("image"):
-                st.image(uploaded_file, caption="Vista previa de la imagen", use_column_width=True)
+                # Mostrar vista previa de la imagen en el área principal
+                st.image(uploaded_file, caption=f"Vista previa: {uploaded_file.name}", use_column_width=True)
                 return {"type": "image", "file": uploaded_file}
             elif file_type == "application/pdf":
+                # Mostrar información del PDF en el área principal
                 st.info(f"PDF cargado: {uploaded_file.name}")
                 return {"type": "pdf", "file": uploaded_file}
+        else:
+            # Mostrar mensaje de ayuda cuando no hay archivos
+            st.sidebar.info("👆 Sube una imagen o PDF para comenzar")
 
         return None
 
@@ -192,6 +214,9 @@ class MistralOCRApp:
             - Idiomas: soporta múltiples idiomas
             """)
 
+        # Mostrar selector de archivos en la barra lateral
+        file_info = self.display_file_uploader()
+
         # Mostrar información del autor en la barra lateral (al final)
         try:
             from sidebar_info import show_author_info
@@ -211,34 +236,41 @@ class MistralOCRApp:
                 else:
                     st.write(msg["content"])
 
-        # Mostrar selector de archivos
-        file_info = self.display_file_uploader()
-
-        # Opciones de procesamiento
+        # Opciones de procesamiento si hay un archivo cargado
         if file_info:
-            with st.expander("Opciones de procesamiento", expanded=False):
-                custom_prompt = st.text_area(
-                    "Instrucción personalizada para el OCR",
-                    value="Extrae todo el texto visible en esta imagen.",
-                    help="Personaliza la instrucción para el modelo de OCR"
-                )
+            # Mostrar opciones de procesamiento
+            st.subheader("Opciones de procesamiento")
+            custom_prompt = st.text_area(
+                "Instrucción personalizada para el OCR",
+                value="Extrae todo el texto visible en esta imagen o documento.",
+                help="Personaliza la instrucción para el modelo de OCR"
+            )
 
-                process_button = st.button("Procesar archivo", type="primary")
+            process_button = st.button("Procesar archivo", type="primary")
 
-                if process_button:
+            if process_button:
+                with st.spinner(f"Procesando {file_info['file'].name}..."):
                     # Procesar archivo
                     extracted_text = self.process_file(file_info, custom_prompt)
 
                     if extracted_text:
                         # Añadir mensaje del usuario
-                        user_message = f"He subido un archivo para extraer texto con la instrucción: '{custom_prompt}'"
+                        user_message = f"He subido {file_info['file'].name} para extraer texto con la instrucción: '{custom_prompt}'"
                         st.session_state["ocr_messages"].append({"role": "user", "content": user_message})
 
                         # Añadir respuesta del asistente
                         st.session_state["ocr_messages"].append({"role": "assistant", "content": extracted_text})
 
+                        # Mostrar éxito
+                        st.success("Texto extraído correctamente")
+
                         # Recargar la página para mostrar los nuevos mensajes
                         st.rerun()
+                    else:
+                        st.error("No se pudo extraer texto del archivo. Intenta con otro archivo o verifica que el contenido sea legible.")
+        else:
+            # Mostrar mensaje de ayuda cuando no hay archivos
+            st.info("👆 Por favor, carga una imagen o PDF en la barra lateral para comenzar.")
 
         # 3. Campo de entrada para nuevas preguntas (al final)
         user_query = st.chat_input(placeholder="Haz una pregunta sobre el texto extraído...")
@@ -256,7 +288,7 @@ class MistralOCRApp:
                 # Obtener el último texto extraído (si existe)
                 extracted_text = None
                 for msg in reversed(st.session_state["ocr_messages"]):
-                    if msg["role"] == "assistant" and "Página" in msg["content"]:
+                    if msg["role"] == "assistant" and ("PÁGINA" in msg["content"] or "Extrae todo el texto" in msg["content"]):
                         extracted_text = msg["content"]
                         break
 
