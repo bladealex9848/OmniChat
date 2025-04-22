@@ -411,7 +411,7 @@ class MistralOCRApp:
             with col1:
                 # Mostrar vista previa del archivo
                 if file_info["type"] == "image":
-                    st.image(file_info["file"], caption=f"Vista previa: {file_info['file'].name}", use_column_width=True)
+                    st.image(file_info["file"], caption=f"Vista previa: {file_info['file'].name}", use_container_width=True)
                 elif file_info["type"] == "pdf":
                     st.info(f"PDF cargado: {file_info['file'].name}")
                     st.caption("Los PDFs no tienen vista previa, pero serán procesados correctamente.")
