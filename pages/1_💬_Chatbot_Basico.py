@@ -32,16 +32,11 @@ class BasicChatbot:
         return chain
 
     def main(self):
-        # Usar contenedores para organizar la interfaz
-        header_container = st.container()
-        chat_container = st.container()
+        # 1. Título y subtítulo (siempre visible en la parte superior)
+        st.header("Chatbot Básico")
+        st.write("Permite a los usuarios interactuar con el LLM")
 
-        # Contenedor del encabezado (siempre visible en la parte superior)
-        with header_container:
-            st.header("Chatbot Básico")
-            st.write("Permite a los usuarios interactuar con el LLM")
-
-        # Mostrar información del autor
+        # Mostrar información del autor en la barra lateral
         try:
             from sidebar_info import show_author_info
             show_author_info()
@@ -50,32 +45,31 @@ class BasicChatbot:
 
         chain = self.setup_chain()
 
-        # Mostrar mensajes del historial
+        # 2. Mostrar mensajes del historial (saludo inicial y conversación)
         for msg in st.session_state["basic_chat_messages"]:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
-        # Interfaz de chat en el contenedor de chat
-        with chat_container:
-            user_query = st.chat_input(placeholder="¡Hazme una pregunta!")
-            if user_query:
-                # Añadir mensaje del usuario al historial
-                st.session_state["basic_chat_messages"].append({"role": "user", "content": user_query})
+        # 3. Campo de entrada para nuevas preguntas (al final)
+        user_query = st.chat_input(placeholder="¡Hazme una pregunta!")
+        if user_query:
+            # Añadir mensaje del usuario al historial
+            st.session_state["basic_chat_messages"].append({"role": "user", "content": user_query})
 
-                # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
-                with st.chat_message("user"):
-                    st.write(user_query)
+            # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
+            with st.chat_message("user"):
+                st.write(user_query)
 
-                # Generar respuesta
-                with st.chat_message("assistant"):
-                    st_cb = StreamHandler(st.empty())
-                    result = chain.invoke({"input": user_query}, {"callbacks": [st_cb]})
-                    response = result["response"]
+            # Generar respuesta
+            with st.chat_message("assistant"):
+                st_cb = StreamHandler(st.empty())
+                result = chain.invoke({"input": user_query}, {"callbacks": [st_cb]})
+                response = result["response"]
 
-                    # Añadir respuesta al historial
-                    st.session_state["basic_chat_messages"].append(
-                        {"role": "assistant", "content": response}
-                    )
+                # Añadir respuesta al historial
+                st.session_state["basic_chat_messages"].append(
+                    {"role": "assistant", "content": response}
+                )
 
 
 if __name__ == "__main__":
