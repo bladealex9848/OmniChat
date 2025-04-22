@@ -14,22 +14,28 @@ from streaming import StreamHandler
 # Configuración de la página (debe ser la primera llamada a Streamlit)
 st.set_page_config(page_title="OCR con Mistral AI", page_icon="📷")
 
-# Inicializar mensajes si no existen - usando un nombre más específico para evitar conflictos
-if "mistral_ocr_messages" not in st.session_state:
-    st.session_state["mistral_ocr_messages"] = [
-        {
-            "role": "assistant",
-            "content": "Hola, soy un asistente de OCR. Puedo extraer texto de imágenes y documentos PDF. Sube un archivo para comenzar.",
-        }
-    ]
+# Inicializar mensajes - usando un enfoque más seguro
+# Colocamos esto en una función para garantizar que se ejecute correctamente
+def initialize_session_state():
+    # Inicializar mensajes si no existen
+    if "mistral_ocr_messages" not in st.session_state:
+        st.session_state["mistral_ocr_messages"] = [
+            {
+                "role": "assistant",
+                "content": "Hola, soy un asistente de OCR. Puedo extraer texto de imágenes y documentos PDF. Sube un archivo para comenzar.",
+            }
+        ]
 
-# Limpiar cualquier estado de sesión conflictivo
-if "ocr_messages" in st.session_state:
-    # Migrar mensajes antiguos si existen
-    if "mistral_ocr_messages" in st.session_state and len(st.session_state["mistral_ocr_messages"]) <= 1:
-        st.session_state["mistral_ocr_messages"] = st.session_state["ocr_messages"]
-    # Eliminar la clave antigua
-    del st.session_state["ocr_messages"]
+    # Limpiar cualquier estado de sesión conflictivo
+    if "ocr_messages" in st.session_state:
+        # Migrar mensajes antiguos si existen
+        if len(st.session_state["mistral_ocr_messages"]) <= 1:
+            st.session_state["mistral_ocr_messages"] = st.session_state["ocr_messages"]
+        # Eliminar la clave antigua
+        del st.session_state["ocr_messages"]
+
+# Llamar a la función de inicialización
+initialize_session_state()
 
 class MistralOCRApp:
     def __init__(self):
@@ -329,6 +335,10 @@ class MistralOCRApp:
         return None
 
     def main(self):
+        # Asegurarse de que el estado de sesión esté inicializado
+        if "mistral_ocr_messages" not in st.session_state:
+            initialize_session_state()
+
         # 1. Título y subtítulo (siempre visible en la parte superior)
         st.title("OCR con Mistral AI")
         st.write("Extrae texto de imágenes y documentos PDF utilizando la API de OCR de Mistral AI.")
@@ -507,13 +517,32 @@ class MistralOCRApp:
 
 if __name__ == "__main__":
     try:
+        # Asegurarse de que el estado de sesión esté inicializado correctamente
+        if "mistral_ocr_messages" not in st.session_state:
+            # Inicializar con un mensaje de bienvenida
+            st.session_state["mistral_ocr_messages"] = [
+                {
+                    "role": "assistant",
+                    "content": "Hola, soy un asistente de OCR. Puedo extraer texto de imágenes y documentos PDF. Sube un archivo para comenzar.",
+                }
+            ]
+
         # Limpiar cualquier estado de sesión que pueda estar causando conflictos
+        # pero preservar mistral_ocr_messages
+        mistral_messages = None
+        if "mistral_ocr_messages" in st.session_state:
+            mistral_messages = st.session_state["mistral_ocr_messages"]
+
         for key in list(st.session_state.keys()):
             if "file_uploader" in key or "ocr" in key:
                 try:
                     del st.session_state[key]
                 except:
                     pass
+
+        # Restaurar mistral_ocr_messages
+        if mistral_messages:
+            st.session_state["mistral_ocr_messages"] = mistral_messages
 
         # Crear una nueva instancia de la aplicación
         obj = MistralOCRApp()
