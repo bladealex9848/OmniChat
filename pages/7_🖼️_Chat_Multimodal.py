@@ -218,7 +218,7 @@ class MultimodalChatbot:
         # Procesar la imagen si se ha subido una
         if uploaded_file:
             # Mostrar la imagen en la barra lateral
-            st.sidebar.image(uploaded_file, caption="Imagen cargada", use_column_width=True)
+            st.sidebar.image(uploaded_file, caption="Imagen cargada", use_container_width=True)
 
             # Procesar la imagen
             self.image_data, self.image_base64 = self.process_image(uploaded_file)
