@@ -18,49 +18,49 @@ except ImportError:
         def __init__(self):
             self.session_state = {}
             self.secrets = {}
-            
+
         def sidebar(self):
             return self
-            
+
         def radio(self, label, options, key):
             return options[0]
-            
+
         def text_input(self, label, type=None, placeholder=None, key=None, help=None):
             return "mock_api_key"
-            
+
         def selectbox(self, label, options, key=None, help=None):
             return options[0] if options else None
-            
+
         def error(self, text):
             print(f"ERROR: {text}")
-            
+
         def info(self, text):
             print(f"INFO: {text}")
-            
+
         def stop(self):
             print("STOP: Execution stopped")
-            
+
         def warning(self, text):
             print(f"WARNING: {text}")
-            
+
         def success(self, text):
             print(f"SUCCESS: {text}")
-            
+
         def expander(self, title):
             class Expander:
                 def __enter__(self):
                     return self
-                    
+
                 def __exit__(self, exc_type, exc_val, exc_tb):
                     pass
-                    
+
                 def write(self, text):
                     print(f"EXPANDER: {text}")
-            
+
             return Expander()
-    
+
     st = StMock()
-    
+
     class ChatOpenAI:
         def __init__(self, model_name=None, model=None, temperature=0, streaming=True, api_key=None, base_url=None, default_headers=None):
             self.model_name = model_name
@@ -72,10 +72,13 @@ except ImportError:
             self.default_headers = default_headers
 
 
-def choose_custom_openai_key():
+def choose_custom_openai_key(key_suffix=""):
     """
     Permite al usuario ingresar una clave API personalizada de OpenAI y seleccionar un modelo.
-    
+
+    Args:
+        key_suffix (str): Sufijo para añadir a las claves de los elementos para evitar duplicados
+
     Returns:
         tuple: (model, openai_api_key)
     """
@@ -83,7 +86,7 @@ def choose_custom_openai_key():
         label="OpenAI API Key",
         type="password",
         placeholder="sk-...",
-        key="SELECTED_OPENAI_API_KEY",
+        key=f"SELECTED_OPENAI_API_KEY{key_suffix}",
     )
     if not openai_api_key:
         st.error("Por favor, añade tu clave de API de OpenAI para continuar.")
@@ -104,7 +107,7 @@ def choose_custom_openai_key():
         available_models = [i["id"] for i in available_models]
 
         model = st.sidebar.selectbox(
-            label="Model", options=available_models, key="SELECTED_OPENAI_MODEL"
+            label="Model", options=available_models, key=f"SELECTED_OPENAI_MODEL{key_suffix}"
         )
     except openai.AuthenticationError as e:
         st.error(e.body["message"])
@@ -116,15 +119,19 @@ def choose_custom_openai_key():
     return model, openai_api_key
 
 
-def configure_llm():
+def configure_llm(key_suffix=""):
     """
     Configura y devuelve un modelo de lenguaje (LLM) basado en la selección del usuario.
-    
+
+    Args:
+        key_suffix (str): Sufijo para añadir a las claves de los elementos para evitar duplicados
+                          cuando se llama a esta función múltiples veces en la misma página.
+
     Returns:
         ChatOpenAI: Instancia configurada del modelo de lenguaje
     """
     available_llms = ["gpt-4.1-nano", "openrouter", "usa tu clave de api de openai"]
-    llm_opt = st.sidebar.radio(label="LLM", options=available_llms, key="SELECTED_LLM")
+    llm_opt = st.sidebar.radio(label="LLM", options=available_llms, key=f"SELECTED_LLM{key_suffix}")
 
     if llm_opt == "gpt-4.1-nano":
         # Usar el modelo predeterminado con la clave API de OpenAI de secrets.toml
@@ -319,7 +326,7 @@ def get_openrouter_free_models() -> List[Dict[str, Any]]:
         return default_models  # Devolver modelos por defecto en caso de excepción
 
 
-def configure_openrouter_client(multimodal_only=False):
+def configure_openrouter_client(multimodal_only=False, key_suffix=""):
     """
     Configura un cliente para OpenRouter con manejo de errores y recuperación
 
@@ -340,7 +347,7 @@ def configure_openrouter_client(multimodal_only=False):
             label="OpenRouter API Key",
             type="password",
             placeholder="sk-or-...",
-            key="OPENROUTER_API_KEY",
+            key=f"OPENROUTER_API_KEY{key_suffix}",
             help="Obtén tu clave API en https://openrouter.ai/keys",
         )
 
@@ -405,7 +412,7 @@ def configure_openrouter_client(multimodal_only=False):
         selected_name = st.sidebar.selectbox(
             "Modelo Gratuito de OpenRouter",
             options=list(model_options.keys()),
-            key="SELECTED_OPENROUTER_MODEL",
+            key=f"SELECTED_OPENROUTER_MODEL{key_suffix}",
             help="Selecciona un modelo gratuito. Los modelos con 🖼️ soportan imágenes.",
         )
         model_id = model_options.get(selected_name)
@@ -432,7 +439,7 @@ def configure_openrouter_client(multimodal_only=False):
     return api_key, model_id
 
 
-def get_mistral_api_key():
+def get_mistral_api_key(key_suffix=""):
     """
     Obtiene la clave API de Mistral
 
@@ -452,7 +459,7 @@ def get_mistral_api_key():
             label="Mistral API Key",
             type="password",
             placeholder="...",
-            key="MISTRAL_API_KEY",
+            key=f"MISTRAL_API_KEY{key_suffix}",
             help="Obtén tu clave API en https://console.mistral.ai/api-keys/",
         )
 
