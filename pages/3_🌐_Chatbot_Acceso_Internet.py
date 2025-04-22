@@ -80,7 +80,31 @@ class InternetChatbot:
                 "Equipado con acceso a internet, permite a los usuarios hacer preguntas sobre eventos recientes"
             )
 
-        # Mostrar información del autor
+        # Primero configurar el LLM en la barra lateral
+        st.sidebar.markdown("### 🤖 Selecciona el modelo")
+        self.llm = utils.configure_llm(key_suffix="_sidebar")
+
+        # Luego mostrar instrucciones específicas para el chatbot con acceso a internet
+        with st.sidebar.expander("🌐 Instrucciones de uso", expanded=True):
+            st.markdown("""
+            ### Cómo usar el Chatbot con Acceso a Internet
+
+            1. **Selecciona un modelo** de lenguaje en la parte superior
+            2. **Haz preguntas sobre eventos actuales** o temas que requieran información actualizada
+            3. **Revisa las fuentes** que aparecen en la cadena de pensamiento
+
+            #### Funcionalidades
+            - Busca información actualizada en internet
+            - Cita fuentes de información
+            - Mantiene contexto entre preguntas relacionadas
+
+            #### Consejos para mejores resultados
+            - Sé específico en tus preguntas
+            - Incluye fechas o nombres completos cuando sea relevante
+            - Para preguntas de seguimiento, puedes usar referencias como "eso", "el", "ella"
+            """)
+
+        # Mostrar información del autor en la barra lateral (al final)
         try:
             from sidebar_info import show_author_info
             show_author_info()

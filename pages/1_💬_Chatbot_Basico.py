@@ -36,7 +36,31 @@ class BasicChatbot:
         st.header("Chatbot Básico")
         st.write("Permite a los usuarios interactuar con el LLM")
 
-        # Mostrar información del autor en la barra lateral
+        # Primero configurar el LLM en la barra lateral
+        st.sidebar.markdown("### 🤖 Selecciona el modelo")
+        self.llm = utils.configure_llm(key_suffix="_sidebar")
+
+        # Luego mostrar instrucciones específicas para el chatbot básico
+        with st.sidebar.expander("💬 Instrucciones de uso", expanded=True):
+            st.markdown("""
+            ### Cómo usar el Chatbot Básico
+
+            1. **Selecciona un modelo** de lenguaje en la parte superior
+            2. **Escribe tu pregunta** en el campo de texto inferior
+            3. **Recibe respuestas** del asistente virtual
+
+            #### Funcionalidades
+            - Conversación simple pregunta-respuesta
+            - Respuestas generadas en tiempo real
+            - Interfaz de chat intuitiva
+
+            #### Limitaciones
+            - No tiene memoria de mensajes anteriores en la conversación
+            - No tiene acceso a internet o documentos externos
+            - No puede generar imágenes o procesar archivos
+            """)
+
+        # Mostrar información del autor en la barra lateral (al final)
         try:
             from sidebar_info import show_author_info
             show_author_info()

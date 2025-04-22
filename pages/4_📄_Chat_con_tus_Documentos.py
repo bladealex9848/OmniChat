@@ -105,7 +105,7 @@ class CustomDataChatbot:
                 import base64
                 import requests
                 from langchain_core.documents import Document
-                
+
                 # Función para obtener la API key de Mistral
                 def get_mistral_api_key_local():
                     # Intentar obtener de Streamlit secrets
@@ -116,13 +116,13 @@ class CustomDataChatbot:
                     if api_key and api_key.strip():
                         return api_key
                     return None
-                
+
                 # Función para procesar PDF con OCR
                 def process_pdf_with_ocr(api_key, pdf_data, file_name):
                     # Usar un contenedor normal en lugar de un status para evitar anidamiento de expanders
                     st.write(f"Procesando {file_name} con OCR de Mistral...")
                     progress_bar = st.progress(0, text="Iniciando procesamiento OCR...")
-                    
+
                     try:
                         # Si pdf_data es un archivo subido, convertirlo a bytes
                         if hasattr(pdf_data, "read"):
@@ -131,27 +131,27 @@ class CustomDataChatbot:
                         else:
                             # Si ya es bytes, usarlo directamente
                             bytes_data = pdf_data
-                        
+
                         progress_bar.progress(25, text="Preparando documento...")
-                        
+
                         # Codificar el PDF a base64
                         encoded_pdf = base64.b64encode(bytes_data).decode("utf-8")
                         pdf_url = f"data:application/pdf;base64,{encoded_pdf}"
-                        
+
                         # Preparar los datos para la solicitud
                         payload = {
                             "model": "mistral-ocr-latest",
                             "document": {"type": "document_url", "document_url": pdf_url},
                         }
-                        
+
                         # Configurar los headers
                         headers = {
                             "Content-Type": "application/json",
                             "Authorization": f"Bearer {api_key}",
                         }
-                        
+
                         progress_bar.progress(50, text="Enviando PDF a la API...")
-                        
+
                         # Hacer la solicitud a la API de Mistral con timeout
                         response = requests.post(
                             "https://api.mistral.ai/v1/ocr",
@@ -159,14 +159,14 @@ class CustomDataChatbot:
                             headers=headers,
                             timeout=120,  # 120 segundos de timeout para PDFs grandes
                         )
-                        
+
                         progress_bar.progress(75, text="Procesando respuesta...")
-                        
+
                         # Revisar si la respuesta fue exitosa
                         if response.status_code == 200:
                             result = response.json()
                             progress_bar.progress(100, text="PDF procesado correctamente")
-                            
+
                             # Extraer texto del resultado
                             if "pages" in result and isinstance(result["pages"], list):
                                 pages = result["pages"]
@@ -185,14 +185,14 @@ class CustomDataChatbot:
                         error_message = f"Error al procesar PDF: {str(e)}"
                         progress_bar.progress(100, text=f"Error: {str(e)}")
                         return {"error": error_message}
-                
+
                 # Obtener la API key de Mistral
                 api_key = get_mistral_api_key_local()
-                
+
                 if not api_key:
                     st.error("Se requiere una API key de Mistral para usar OCR. Configúrala en secrets.toml.")
                     st.stop()
-                
+
                 # Procesar cada documento con OCR
                 ocr_docs = []
                 for file in uploaded_files:
@@ -200,14 +200,14 @@ class CustomDataChatbot:
                         file_path = self.save_file(file)
                         with open(file_path, "rb") as f:
                             file_bytes = f.read()
-                        
+
                         # Usar OCR para extraer texto
                         ocr_result = process_pdf_with_ocr(api_key, file_bytes, file.name)
-                        
+
                         if "error" in ocr_result:
                             st.error(f"Error en OCR: {ocr_result['error']}")
                             continue
-                            
+
                         # Extraer texto del resultado OCR
                         if "text" in ocr_result and ocr_result["text"]:
                             # Crear un documento con el texto extraído
@@ -219,7 +219,7 @@ class CustomDataChatbot:
                             st.success(f"Texto extraído con éxito de {file.name} usando OCR")
                     except Exception as e:
                         st.error(f"Error al procesar {file.name} con OCR: {str(e)}")
-                
+
                 # Si se obtuvieron documentos con OCR, usarlos
                 if ocr_docs:
                     # Dividir los documentos OCR
@@ -294,62 +294,62 @@ class CustomDataChatbot:
         st.write(
             "Tiene acceso a documentos personalizados y puede responder a las consultas de los usuarios refiriéndose al contenido de esos documentos"
         )
-        
+
         # Primero configurar el LLM en la barra lateral
         st.sidebar.markdown("### 🤖 Selecciona el modelo")
         self.llm = utils.configure_llm(key_suffix="_sidebar")
-        
+
         # Luego mostrar instrucciones específicas para el chat con documentos
         with st.sidebar.expander("📜 Instrucciones de uso", expanded=True):
             st.markdown("""
             ### Cómo usar el Chat con Documentos
-            
+
             1. **Sube tus documentos PDF** usando el selector de archivos abajo
             2. **Espera** a que se procesen los documentos
             3. **Haz preguntas** sobre el contenido de tus documentos
             4. **Revisa las fuentes** que aparecen debajo de cada respuesta
-            
+
             #### Funcionalidades
             - Puedes subir **múltiples documentos** a la vez
             - El sistema usará **OCR** automáticamente si los PDFs no contienen texto legible
             - Las respuestas incluyen **referencias a las fuentes** de donde se extrajo la información
-            
+
             #### Limitaciones
             - Documentos muy grandes pueden tardar más en procesarse
             - El OCR funciona mejor con documentos de buena calidad
             """)
-        
+
         # Entradas del usuario en la barra lateral
         st.sidebar.markdown("### 📜 Cargar documentos")
         uploaded_files = st.sidebar.file_uploader(
             label="Selecciona archivos PDF", type=["pdf"], accept_multiple_files=True
         )
-        
+
         # Mostrar información sobre los archivos cargados
         if uploaded_files:
             st.sidebar.success(f"✅ {len(uploaded_files)} archivo(s) cargado(s)")
             for file in uploaded_files:
                 st.sidebar.info(f"📄 {file.name} ({round(file.size/1024, 1)} KB)")
-        
+
         # Mostrar información del autor en la barra lateral (al final)
         try:
             from sidebar_info import show_author_info
             show_author_info()
         except ImportError:
             st.sidebar.warning("No se pudo cargar la información del autor.")
-        
+
         # Verificar si hay archivos cargados
         if not uploaded_files:
             st.info(
                 "👆 Por favor, carga documentos PDF en la barra lateral para comenzar."
             )
             st.stop()
-        
+
         # 2. Mostrar mensajes del historial (saludo inicial y conversación)
         for msg in st.session_state["doc_chat_messages"]:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
-        
+
         # 3. Campo de entrada para nuevas preguntas (al final)
         user_query = st.chat_input(
             placeholder="¡Hazme una pregunta sobre tus documentos!"
@@ -359,49 +359,49 @@ class CustomDataChatbot:
             try:
                 # Añadir mensaje del usuario al historial
                 st.session_state["doc_chat_messages"].append({"role": "user", "content": user_query})
-                
+
                 # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
                 with st.chat_message("user"):
                     st.write(user_query)
-                
+
                 # Crear un contenedor para mostrar el estado del procesamiento
                 processing_container = st.container()
-                
+
                 # Mostrar un mensaje de procesamiento
                 with processing_container:
                     status_text = st.empty()
                     status_text.text("Procesando documentos y preparando respuesta...")
-                    
+
                     # Procesar documentos
                     qa_chain = self.setup_qa_chain(uploaded_files)
-                    
+
                     status_text.text("Procesando tu pregunta...")
-                    
+
                     # Generar respuesta
                     with st.chat_message("assistant"):
-                        # Crear un contenedor para la respuesta
-                        response_container = st.container()
-                        
-                        # Usar un contenedor separado para la cadena de pensamiento
-                        thought_container = st.container()
-                        
-                        # Procesar la consulta
-                        with thought_container:
-                            st_cb = StreamHandler(st.empty())
+                        # Procesar la consulta en un contenedor oculto
+                        with st.container():
+                            # Crear un elemento vacío que no se mostrará al usuario
+                            hidden_element = st.empty()
+                            # Usar el StreamHandler con el elemento oculto
+                            st_cb = StreamHandler(hidden_element)
+                            # Invocar la cadena de QA
                             result = qa_chain.invoke(
                                 {"question": user_query}, {"callbacks": [st_cb]}
                             )
+                            # Obtener la respuesta
                             response = result["answer"]
-                        
-                        # Mostrar la respuesta en el contenedor de respuesta
-                        with response_container:
-                            st.write(response)
-                        
+                            # Limpiar el elemento oculto
+                            hidden_element.empty()
+
+                        # Mostrar la respuesta una sola vez
+                        st.write(response)
+
                         # Añadir respuesta al historial
                         st.session_state["doc_chat_messages"].append(
                             {"role": "assistant", "content": response}
                         )
-                        
+
                         # Para mostrar referencias en un popover (no en expander)
                         st.markdown("**Fuentes de información:**")
                         for idx, doc in enumerate(result["source_documents"], 1):
@@ -415,10 +415,10 @@ class CustomDataChatbot:
                                 st.warning(
                                     f"No se pudo mostrar la referencia {idx}: Falta información en los metadatos."
                                 )
-                
+
                 # Limpiar el contenedor de procesamiento
                 processing_container.empty()
-                
+
             except Exception as e:
                 st.error(f"Error al procesar la consulta: {str(e)}")
                 st.info("Intenta con una pregunta diferente o carga otros documentos.")

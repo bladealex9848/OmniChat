@@ -47,7 +47,31 @@ class ContextChatbot:
             "Mejorando las interacciones del chatbot a través de la memoria de conversación"
         )
 
-        # Mostrar información del autor en la barra lateral
+        # Primero configurar el LLM en la barra lateral
+        st.sidebar.markdown("### 🤖 Selecciona el modelo")
+        self.llm = utils.configure_llm(key_suffix="_sidebar")
+
+        # Luego mostrar instrucciones específicas para el chatbot con memoria
+        with st.sidebar.expander("🧠 Instrucciones de uso", expanded=True):
+            st.markdown("""
+            ### Cómo usar el Chatbot con Memoria
+
+            1. **Selecciona un modelo** de lenguaje en la parte superior
+            2. **Escribe tu pregunta** en el campo de texto inferior
+            3. **Mantén una conversación** con referencias a mensajes anteriores
+
+            #### Funcionalidades
+            - Recuerda el contexto de la conversación
+            - Puedes hacer preguntas de seguimiento
+            - Puedes referirte a información mencionada previamente
+
+            #### Ejemplos de uso
+            - "Cuáles son los planetas del sistema solar?"
+            - "Cuál es el más grande de ellos?"
+            - "Dime más sobre ese planeta"
+            """)
+
+        # Mostrar información del autor en la barra lateral (al final)
         try:
             from sidebar_info import show_author_info
             show_author_info()
