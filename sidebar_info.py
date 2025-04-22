@@ -4,10 +4,20 @@ Módulo para mostrar información de autoría y enlaces en la barra lateral.
 
 import streamlit as st
 
-def show_author_info():
+def show_author_info(show_instructions=False, instructions_title="Instrucciones", instructions_content=""):
     """
     Muestra información del autor y enlaces en la barra lateral.
+
+    Args:
+        show_instructions (bool): Si es True, muestra un expander con instrucciones
+        instructions_title (str): Título del expander de instrucciones
+        instructions_content (str): Contenido de las instrucciones en formato markdown
     """
+    # Mostrar instrucciones si se solicitan
+    if show_instructions and instructions_content:
+        with st.sidebar.expander(instructions_title, expanded=True):
+            st.markdown(instructions_content)
+
     # Separador
     st.sidebar.markdown("---")
 

@@ -102,14 +102,42 @@ class SqlChatbot:
         st.write(
             "Permite al chatbot interactuar con una base de datos SQL a través de comandos simples y conversacionales."
         )
-        
-        # Mostrar información del autor en la barra lateral
+
+        # Mostrar información del autor e instrucciones en la barra lateral
         try:
             from sidebar_info import show_author_info
-            show_author_info()
+
+            # Instrucciones específicas para el chat con base de datos SQL
+            instrucciones = """
+            ### 🔎 Cómo usar el Chat con Base de Datos SQL
+
+            1. **Selecciona una base de datos**:
+               - Usa la base de datos de ejemplo (Chinook)
+               - O conecta a tu propia base de datos SQL
+
+            2. **Explora las tablas** disponibles en el panel lateral
+
+            3. **Haz preguntas** sobre los datos en lenguaje natural
+               - "Muestra todos los clientes de USA"
+               - "Cuáles son las 5 canciones más vendidas?"
+               - "Calcula el total de ventas por país"
+
+            #### Funcionalidades
+            - Traduce lenguaje natural a consultas SQL
+            - Muestra resultados en formato tabular
+            - Soporta análisis complejos y agregaciones
+
+            #### Limitaciones
+            - Las consultas muy complejas pueden requerir reformulación
+            - Por seguridad, solo se permiten operaciones de lectura
+            """
+
+            show_author_info(show_instructions=True,
+                           instructions_title="🔎 Instrucciones",
+                           instructions_content=instrucciones)
         except ImportError:
             st.sidebar.warning("No se pudo cargar la información del autor.")
-        
+
         radio_opt = [
             "Usar base de datos de ejemplo - Chinook.db",
             "Conectar a tu base de datos SQL",
@@ -153,7 +181,7 @@ class SqlChatbot:
         agent = self.setup_sql_agent(db)
         if agent is None:
             st.stop()
-            
+
         # 2. Mostrar mensajes del historial (saludo inicial y conversación)
         for msg in st.session_state["sql_chat_messages"]:
             with st.chat_message(msg["role"]):
@@ -165,7 +193,7 @@ class SqlChatbot:
         if user_query:
             # Añadir mensaje del usuario al historial
             st.session_state["sql_chat_messages"].append({"role": "user", "content": user_query})
-            
+
             # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
             with st.chat_message("user"):
                 st.write(user_query)
@@ -176,7 +204,7 @@ class SqlChatbot:
                 try:
                     result = agent.invoke({"input": user_query}, {"callbacks": [st_cb]})
                     response = result["output"]
-                    
+
                     # Añadir respuesta al historial
                     st.session_state["sql_chat_messages"].append(
                         {"role": "assistant", "content": response}

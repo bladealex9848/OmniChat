@@ -98,13 +98,93 @@ class CustomDataChatbot:
                 "No se pudieron extraer fragmentos de texto de los documentos. Intentando con OCR..."
             )
 
-            # Importar el módulo de OCR de Mistral
+            # Crear una función para procesar con OCR sin importar el módulo completo
             try:
+                # Importar solo las funciones necesarias sin importar el módulo completo
                 import sys
-                from mistral_ocr_app import get_mistral_api_key, process_pdf_with_mistral_ocr, extract_text_from_ocr_response
+                import os
+                import base64
+                import requests
+                import json
+                import io
+                from pathlib import Path
+                from langchain_core.documents import Document
+
+                # Función para obtener la API key de Mistral
+                def get_mistral_api_key_local():
+                    # Intentar obtener de Streamlit secrets
+                    if hasattr(st, "secrets") and "MISTRAL_API_KEY" in st.secrets:
+                        return st.secrets["MISTRAL_API_KEY"]
+                    # Intentar obtener de variables de entorno
+                    api_key = os.environ.get("MISTRAL_API_KEY")
+                    if api_key and api_key.strip():
+                        return api_key
+                    return None
+
+                # Función para procesar PDF con OCR
+                def process_pdf_with_ocr(api_key, pdf_data, file_name):
+                    with st.status("Procesando PDF con OCR de Mistral...", expanded=True) as status:
+                        try:
+                            # Si pdf_data es un archivo subido, convertirlo a bytes
+                            if hasattr(pdf_data, "read"):
+                                bytes_data = pdf_data.read()
+                                pdf_data.seek(0)  # Reset file pointer
+                            else:
+                                # Si ya es bytes, usarlo directamente
+                                bytes_data = pdf_data
+
+                            # Codificar el PDF a base64
+                            encoded_pdf = base64.b64encode(bytes_data).decode("utf-8")
+                            pdf_url = f"data:application/pdf;base64,{encoded_pdf}"
+
+                            # Preparar los datos para la solicitud
+                            payload = {
+                                "model": "mistral-ocr-latest",
+                                "document": {"type": "document_url", "document_url": pdf_url},
+                            }
+
+                            # Configurar los headers
+                            headers = {
+                                "Content-Type": "application/json",
+                                "Authorization": f"Bearer {api_key}",
+                            }
+
+                            status.update(label="Enviando PDF a la API...")
+
+                            # Hacer la solicitud a la API de Mistral con timeout
+                            response = requests.post(
+                                "https://api.mistral.ai/v1/ocr",
+                                json=payload,
+                                headers=headers,
+                                timeout=120,  # 120 segundos de timeout para PDFs grandes
+                            )
+
+                            # Revisar si la respuesta fue exitosa
+                            if response.status_code == 200:
+                                result = response.json()
+                                status.update(label="PDF procesado correctamente", state="complete")
+
+                                # Extraer texto del resultado
+                                if "pages" in result and isinstance(result["pages"], list):
+                                    pages = result["pages"]
+                                    if pages and "markdown" in pages[0]:
+                                        text = "\n\n".join(page.get("markdown", "") for page in pages if "markdown" in page)
+                                        return {"text": text}
+                                elif "text" in result:
+                                    return {"text": result["text"]}
+                                else:
+                                    return {"error": "No se pudo extraer texto del resultado OCR"}
+                            else:
+                                error_message = f"Error en API OCR (código {response.status_code}): {response.text}"
+                                status.update(label="Error al procesar el PDF", state="error")
+                                return {"error": error_message}
+                        except Exception as e:
+                            error_message = f"Error al procesar PDF: {str(e)}"
+                            status.update(label=f"Error: {str(e)}", state="error")
+                            return {"error": error_message}
 
                 # Obtener la API key de Mistral
-                api_key = get_mistral_api_key()
+                api_key = get_mistral_api_key_local()
 
                 if not api_key:
                     st.error("Se requiere una API key de Mistral para usar OCR. Configúrala en secrets.toml.")
@@ -118,9 +198,9 @@ class CustomDataChatbot:
                         with open(file_path, "rb") as f:
                             file_bytes = f.read()
 
-                        # Usar OCR de Mistral para extraer texto
+                        # Usar OCR para extraer texto
                         st.info(f"Procesando {file.name} con OCR de Mistral...")
-                        ocr_result = process_pdf_with_mistral_ocr(api_key, file_bytes, file.name)
+                        ocr_result = process_pdf_with_ocr(api_key, file_bytes, file.name)
 
                         if "error" in ocr_result:
                             st.error(f"Error en OCR: {ocr_result['error']}")
@@ -129,7 +209,6 @@ class CustomDataChatbot:
                         # Extraer texto del resultado OCR
                         if "text" in ocr_result and ocr_result["text"]:
                             # Crear un documento con el texto extraído
-                            from langchain_core.documents import Document
                             doc = Document(
                                 page_content=ocr_result["text"],
                                 metadata={"source": file_path, "page": 1}
@@ -214,10 +293,32 @@ class CustomDataChatbot:
             "Tiene acceso a documentos personalizados y puede responder a las consultas de los usuarios refiriéndose al contenido de esos documentos"
         )
 
-        # Mostrar información del autor en la barra lateral
+        # Mostrar información del autor e instrucciones en la barra lateral
         try:
             from sidebar_info import show_author_info
-            show_author_info()
+
+            # Instrucciones específicas para el chat con documentos
+            instrucciones = """
+            ### 📜 Cómo usar el Chat con Documentos
+
+            1. **Sube tus documentos PDF** usando el selector de archivos en la barra lateral
+            2. **Espera** a que se procesen los documentos
+            3. **Haz preguntas** sobre el contenido de tus documentos
+            4. **Revisa las fuentes** que aparecen debajo de cada respuesta
+
+            #### Funcionalidades
+            - Puedes subir **múltiples documentos** a la vez
+            - El sistema usará **OCR** automáticamente si los PDFs no contienen texto legible
+            - Las respuestas incluyen **referencias a las fuentes** de donde se extrajo la información
+
+            #### Limitaciones
+            - Documentos muy grandes pueden tardar más en procesarse
+            - El OCR funciona mejor con documentos de buena calidad
+            """
+
+            show_author_info(show_instructions=True,
+                           instructions_title="📜 Instrucciones",
+                           instructions_content=instrucciones)
         except ImportError:
             st.sidebar.warning("No se pudo cargar la información del autor.")
 
