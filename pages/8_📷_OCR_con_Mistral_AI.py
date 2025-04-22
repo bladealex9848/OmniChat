@@ -60,15 +60,61 @@ class MistralOCRApp:
                     pass
 
     def save_file(self, file):
-        """Guarda un archivo subido en una ubicación temporal"""
+        """Guarda un archivo subido en una ubicación temporal con manejo de errores mejorado"""
+        import uuid
+
+        # Crear directorio temporal si no existe
         folder = "tmp"
         if not os.path.exists(folder):
             os.makedirs(folder)
 
-        file_path = f"./{folder}/{file.name}"
-        with open(file_path, "wb") as f:
-            f.write(file.getvalue())
-        return file_path
+        # Obtener extensión del archivo original
+        file_extension = os.path.splitext(file.name)[1]
+        if not file_extension:
+            # Si no tiene extensión, asignar una basada en el tipo
+            if hasattr(file, 'type') and file.type:
+                if file.type.startswith("image/"):
+                    file_extension = ".png"
+                elif file.type == "application/pdf":
+                    file_extension = ".pdf"
+                else:
+                    file_extension = ".bin"  # Extensión genérica
+            else:
+                # Intentar determinar por el nombre
+                if file.name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    file_extension = ".png"
+                elif file.name.lower().endswith('.pdf'):
+                    file_extension = ".pdf"
+                else:
+                    file_extension = ".bin"
+
+        # Crear un nombre de archivo único con UUID para evitar colisiones
+        unique_filename = f"{uuid.uuid4().hex}{file_extension}"
+        file_path = os.path.join(folder, unique_filename)
+
+        # Guardar el archivo con manejo de errores
+        try:
+            # Verificar si el archivo tiene el método getvalue() o getbuffer()
+            if hasattr(file, 'getvalue'):
+                with open(file_path, "wb") as f:
+                    f.write(file.getvalue())
+            elif hasattr(file, 'getbuffer'):
+                with open(file_path, "wb") as f:
+                    f.write(file.getbuffer())
+            else:
+                # Intentar leer directamente
+                with open(file_path, "wb") as f:
+                    f.write(file.read())
+
+            # Verificar que el archivo se guardó correctamente
+            if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                return file_path
+            else:
+                st.error("El archivo se guardó pero parece estar vacío")
+                return None
+        except Exception as e:
+            st.error(f"Error al guardar el archivo: {str(e)}")
+            return None
 
     def get_image_base64(self, image):
         """Convierte una imagen PIL a base64"""
@@ -78,91 +124,142 @@ class MistralOCRApp:
         return img_str
 
     def process_image_with_mistral(self, image, prompt="Extrae todo el texto visible en esta imagen."):
-        """Procesa una imagen con la API de Mistral AI para OCR"""
-        from mistralai import MistralClient
-        from mistralai.models import ChatCompletionResponse
+        """Procesa una imagen con la API de Mistral AI para OCR usando requests directamente"""
+        import requests
+        import json
 
         # Convertir imagen a base64
         base64_image = self.get_image_base64(image)
 
-        # Crear cliente de Mistral
-        client = MistralClient(api_key=self.mistral_api_key)
+        # Preparar la solicitud a la API de Mistral
+        api_url = "https://api.mistral.ai/v1/chat/completions"
 
-        # Crear mensaje con la imagen usando la nueva estructura de la API
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{base64_image}"
+        # Crear mensaje con la imagen
+        payload = {
+            "model": "mistral-large-latest",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{base64_image}"
+                            }
                         }
-                    }
-                ]
-            }
-        ]
+                    ]
+                }
+            ]
+        }
+
+        # Configurar headers
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.mistral_api_key}"
+        }
 
         # Llamar a la API de Mistral
         try:
             st.info("Enviando imagen a Mistral AI para OCR...")
-            chat_response = client.chat(
-                model="mistral-large-latest",
-                messages=messages,
-            )
 
-            # Extraer el contenido de la respuesta
-            if hasattr(chat_response, 'choices') and len(chat_response.choices) > 0:
-                if hasattr(chat_response.choices[0], 'message') and hasattr(chat_response.choices[0].message, 'content'):
-                    return chat_response.choices[0].message.content
-                else:
-                    # Alternativa si la estructura es diferente
-                    return chat_response.choices[0].get('message', {}).get('content', '')
-            else:
+            # Mostrar un spinner mientras se procesa
+            with st.spinner("Procesando imagen con Mistral AI..."):
+                response = requests.post(
+                    api_url,
+                    headers=headers,
+                    json=payload,
+                    timeout=60  # Timeout ampliado para imágenes grandes
+                )
+
+            # Verificar si la respuesta es exitosa
+            if response.status_code == 200:
+                # Parsear la respuesta JSON
+                result = response.json()
+
+                # Extraer el contenido de la respuesta
+                if 'choices' in result and len(result['choices']) > 0:
+                    if 'message' in result['choices'][0] and 'content' in result['choices'][0]['message']:
+                        return result['choices'][0]['message']['content']
+
+                # Si no se pudo extraer el contenido de la forma esperada
                 st.warning("La respuesta de Mistral AI no tiene el formato esperado")
-                st.write(f"Respuesta recibida: {chat_response}")
-                return str(chat_response)
+                st.write(f"Respuesta recibida: {json.dumps(result, indent=2)}")
+                return str(result)
+            else:
+                # Manejar errores de la API
+                st.error(f"Error en la API de Mistral: Código {response.status_code}")
+                st.write(f"Detalles: {response.text}")
+                return None
         except Exception as e:
             st.error(f"Error al procesar la imagen con Mistral AI: {str(e)}")
             return None
 
     def process_pdf_with_mistral(self, pdf_file, prompt="Extrae todo el texto visible en este documento."):
         """Procesa un PDF con la API de Mistral AI para OCR"""
-        import fitz  # PyMuPDF
+        import requests
+        import json
+        import base64
 
         try:
-            # Abrir el PDF
-            pdf_document = fitz.open(stream=pdf_file.read(), filetype="pdf")
+            # Leer el contenido del PDF
+            pdf_bytes = pdf_file.read()
 
-            # Procesar cada página
-            all_text = ""
+            # Codificar PDF en base64
+            encoded_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
 
-            # Limitar a las primeras 5 páginas para evitar exceder límites de API
-            max_pages = min(5, len(pdf_document))
+            # Preparar la solicitud a la API de OCR de Mistral
+            api_url = "https://api.mistral.ai/v1/ocr"
 
-            for page_num in range(max_pages):
-                with st.spinner(f"Procesando página {page_num + 1} de {max_pages}..."):
-                    page = pdf_document[page_num]
+            # Crear payload
+            payload = {
+                "model": "mistral-ocr-latest",
+                "document": {
+                    "type": "document_url",
+                    "document_url": f"data:application/pdf;base64,{encoded_pdf}"
+                }
+            }
 
-                    # Renderizar página como imagen
-                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # Escala 2x para mejor calidad
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            # Configurar headers
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.mistral_api_key}"
+            }
 
-                    # Procesar imagen con Mistral
-                    page_text = self.process_image_with_mistral(
-                        img,
-                        f"Extrae todo el texto visible en esta página {page_num + 1} del documento PDF."
-                    )
+            # Llamar a la API de OCR de Mistral
+            with st.spinner("Procesando PDF con Mistral OCR..."):
+                response = requests.post(
+                    api_url,
+                    headers=headers,
+                    json=payload,
+                    timeout=90  # Timeout ampliado para PDFs grandes
+                )
 
-                    if page_text:
-                        all_text += f"\n--- PÁGINA {page_num + 1} ---\n{page_text}\n"
+            # Verificar si la respuesta es exitosa
+            if response.status_code == 200:
+                # Parsear la respuesta JSON
+                result = response.json()
 
-            return all_text if all_text else "No se pudo extraer texto del PDF."
+                # Extraer texto de las páginas
+                if "pages" in result and isinstance(result["pages"], list):
+                    all_text = ""
+                    for i, page in enumerate(result["pages"]):
+                        if "markdown" in page:
+                            all_text += f"\n--- PÁGINA {i + 1} ---\n{page['markdown']}\n"
 
+                    return all_text if all_text else "No se pudo extraer texto del PDF."
+                else:
+                    st.warning("La respuesta de Mistral OCR no tiene el formato esperado")
+                    st.write(f"Respuesta recibida: {json.dumps(result, indent=2)}")
+                    return str(result)
+            else:
+                # Manejar errores de la API
+                st.error(f"Error en la API de Mistral OCR: Código {response.status_code}")
+                st.write(f"Detalles: {response.text}")
+                return None
         except Exception as e:
             st.error(f"Error al procesar el PDF: {str(e)}")
             return None
