@@ -123,7 +123,7 @@ class MistralOCRApp:
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
         return img_str
 
-    def process_image_with_mistral(self, image, prompt="Extrae todo el texto visible en esta imagen."):
+    def process_image_with_mistral(self, image, prompt="Eres un asistente especializado en OCR. Extrae TODO el texto visible en esta imagen. Incluye absolutamente todo el texto que puedas ver, sin importar el tamaño o la posición. No omitas ningún detalle. Si no hay texto visible, indícalo claramente."):
         """Procesa una imagen con la API de Mistral AI para OCR usando requests directamente"""
         import requests
         import json
@@ -135,8 +135,9 @@ class MistralOCRApp:
         api_url = "https://api.mistral.ai/v1/chat/completions"
 
         # Crear mensaje con la imagen
+        # Usamos mistral-large-2-vision que tiene capacidades de visión
         payload = {
-            "model": "mistral-large-latest",
+            "model": "mistral-large-2-vision",
             "messages": [
                 {
                     "role": "user",
@@ -358,7 +359,8 @@ class MistralOCRApp:
                         status.update(label="Enviando imagen a Mistral AI...", state="running")
 
                         # Usar prompt personalizado o predeterminado
-                        custom_prompt = prompt if prompt else "Extrae todo el texto visible en esta imagen."
+                        default_prompt = "Eres un asistente especializado en OCR. Extrae TODO el texto visible en esta imagen. Incluye absolutamente todo el texto que puedas ver, sin importar el tamaño o la posición. No omitas ningún detalle. Si no hay texto visible, indícalo claramente."
+                        custom_prompt = prompt if prompt else default_prompt
                         result = self.process_image_with_mistral(image, custom_prompt)
 
                         if result:
@@ -532,7 +534,7 @@ class MistralOCRApp:
                 st.subheader("Opciones de procesamiento")
                 custom_prompt = st.text_area(
                     "Instrucción para el OCR",
-                    value="Extrae todo el texto visible en esta imagen o documento.",
+                    value="Eres un asistente especializado en OCR. Extrae TODO el texto visible en esta imagen o documento. Incluye absolutamente todo el texto que puedas ver, sin importar el tamaño o la posición. No omitas ningún detalle. Si no hay texto visible, indícalo claramente.",
                     help="Personaliza la instrucción para el modelo de OCR"
                 )
 
