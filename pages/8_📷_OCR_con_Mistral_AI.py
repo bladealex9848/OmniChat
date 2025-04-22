@@ -124,79 +124,64 @@ class MistralOCRApp:
         return img_str
 
     def process_image_with_mistral(self, image, prompt="Eres un asistente especializado en OCR. Extrae TODO el texto visible en esta imagen. Incluye absolutamente todo el texto que puedas ver, sin importar el tamaño o la posición. No omitas ningún detalle. Si no hay texto visible, indícalo claramente."):
-        """Procesa una imagen con la API de Mistral AI para OCR usando requests directamente"""
-        import requests
+        """Procesa una imagen con OpenRouter para OCR usando modelos multimodales gratuitos"""
+        import openai
         import json
+        from io import BytesIO
 
         # Convertir imagen a base64
         base64_image = self.get_image_base64(image)
 
-        # Preparar la solicitud a la API de Mistral
-        api_url = "https://api.mistral.ai/v1/chat/completions"
+        # Usar la API key de OpenRouter de la instancia
+        if not self.openrouter_api_key:
+            st.error("No se encontró la clave API de OpenRouter")
+            return "Lo siento, no se pudo configurar el modelo multimodal. Por favor, proporciona una clave API de OpenRouter."
 
-        # Crear mensaje con la imagen
-        # Usamos mistral-large-2-vision que tiene capacidades de visión
-        payload = {
-            "model": "mistral-large-2-vision",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{base64_image}"
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
+        # Usar un modelo multimodal gratuito de OpenRouter
+        model_id = "meta-llama/llama-4-maverick:free"
 
-        # Configurar headers
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.mistral_api_key}"
-        }
-
-        # Llamar a la API de Mistral
         try:
-            st.info("Enviando imagen a Mistral AI para OCR...")
+            st.info("Enviando imagen a OpenRouter para OCR...")
+
+            # Crear cliente de OpenAI pero con la base_url de OpenRouter
+            client = openai.OpenAI(
+                api_key=self.openrouter_api_key,
+                base_url="https://openrouter.ai/api/v1",
+                default_headers={
+                    "HTTP-Referer": "https://github.com/bladealex9848/OmniChat",
+                    "X-Title": "OmniChat",
+                },
+            )
+
+            # Preparar los mensajes para la API
+            messages = [
+                {"role": "system", "content": "Eres un asistente especializado en OCR que extrae texto de imágenes con precisión."},
+                {"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                ]}
+            ]
 
             # Mostrar un spinner mientras se procesa
-            with st.spinner("Procesando imagen con Mistral AI..."):
-                response = requests.post(
-                    api_url,
-                    headers=headers,
-                    json=payload,
-                    timeout=60  # Timeout ampliado para imágenes grandes
+            with st.spinner("Procesando imagen con OpenRouter..."):
+                # Realizar la solicitud a la API
+                response = client.chat.completions.create(
+                    model=model_id,
+                    messages=messages,
+                    temperature=0.2,  # Temperatura baja para respuestas más precisas en OCR
                 )
 
-            # Verificar si la respuesta es exitosa
-            if response.status_code == 200:
-                # Parsear la respuesta JSON
-                result = response.json()
+            # Extraer el contenido de la respuesta
+            if hasattr(response, 'choices') and len(response.choices) > 0:
+                if hasattr(response.choices[0], 'message') and hasattr(response.choices[0].message, 'content'):
+                    return response.choices[0].message.content
 
-                # Extraer el contenido de la respuesta
-                if 'choices' in result and len(result['choices']) > 0:
-                    if 'message' in result['choices'][0] and 'content' in result['choices'][0]['message']:
-                        return result['choices'][0]['message']['content']
-
-                # Si no se pudo extraer el contenido de la forma esperada
-                st.warning("La respuesta de Mistral AI no tiene el formato esperado")
-                st.write(f"Respuesta recibida: {json.dumps(result, indent=2)}")
-                return str(result)
-            else:
-                # Manejar errores de la API
-                st.error(f"Error en la API de Mistral: Código {response.status_code}")
-                st.write(f"Detalles: {response.text}")
-                return None
+            # Si no se pudo extraer el contenido de la forma esperada
+            st.warning("La respuesta de OpenRouter no tiene el formato esperado")
+            st.write(f"Respuesta recibida: {response}")
+            return str(response)
         except Exception as e:
-            st.error(f"Error al procesar la imagen con Mistral AI: {str(e)}")
+            st.error(f"Error al procesar la imagen con OpenRouter: {str(e)}")
             return None
 
     def process_pdf_with_mistral(self, pdf_file, prompt="Extrae todo el texto visible en este documento."):
@@ -460,12 +445,29 @@ class MistralOCRApp:
         st.sidebar.markdown("### 🤖 Selecciona el modelo")
         self.llm = utils.configure_llm(key_suffix="_sidebar")
 
-        # Obtener API key de Mistral
+        # Obtener API key de OpenRouter para imágenes
+        openrouter_api_key = None
+        if hasattr(st, "secrets") and "OPENROUTER_API_KEY" in st.secrets:
+            openrouter_api_key = st.secrets["OPENROUTER_API_KEY"]
+        else:
+            # Intentar obtener de la entrada del usuario
+            openrouter_api_key = st.sidebar.text_input(
+                "API Key de OpenRouter",
+                type="password",
+                help="Necesaria para procesar imágenes. Obtén una en https://openrouter.ai/keys"
+            )
+
+        # Guardar la API key en la instancia
+        self.openrouter_api_key = openrouter_api_key
+
+        # Obtener API key de Mistral para PDFs
         self.mistral_api_key = utils.get_mistral_api_key(key_suffix="_sidebar")
 
-        if not self.mistral_api_key:
-            st.error("Se requiere una clave API de Mistral para usar esta funcionalidad.")
-            st.info("Puedes obtener una clave API en https://console.mistral.ai/api-keys/")
+        # Verificar que al menos una API key esté disponible
+        if not self.openrouter_api_key and not self.mistral_api_key:
+            st.error("Se requiere al menos una clave API para usar esta funcionalidad.")
+            st.info("Para imágenes: Obtén una clave API de OpenRouter en https://openrouter.ai/keys")
+            st.info("Para PDFs: Obtén una clave API de Mistral en https://console.mistral.ai/api-keys/")
             st.stop()
 
         # Luego mostrar instrucciones específicas para OCR
