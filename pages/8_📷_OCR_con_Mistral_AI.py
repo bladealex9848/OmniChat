@@ -33,10 +33,25 @@ if "ocr_messages" in st.session_state:
 
 class MistralOCRApp:
     def __init__(self):
-        utils.sync_st_session()
+        # Evitamos usar sync_st_session() que puede causar problemas con el estado
+        # utils.sync_st_session()
         self.llm = None
         self.mistral_api_key = None
         self.max_file_size = 5 * 1024 * 1024  # 5 MB en bytes
+
+        # Limpiar cualquier estado de sesión que pueda estar causando conflictos
+        keys_to_check = [
+            "ocr_file_uploader",
+            "mistral_ocr_file_uploader_8",
+            "file_uploader"
+        ]
+
+        for key in keys_to_check:
+            if key in st.session_state:
+                try:
+                    del st.session_state[key]
+                except:
+                    pass
 
     def save_file(self, file):
         """Guarda un archivo subido en una ubicación temporal"""
@@ -134,20 +149,13 @@ class MistralOCRApp:
 
     def display_file_uploader(self):
         """Muestra el selector de archivos en la barra lateral"""
-        # Usar un nombre de key verdaderamente único para evitar conflictos
-        # Generamos una clave que incluya el nombre de la página para evitar conflictos entre páginas
-        unique_key = "mistral_ocr_file_uploader_8"
-
-        # Limpiar el estado de sesión si hay un error previo
-        if unique_key in st.session_state and isinstance(st.session_state[unique_key], Exception):
-            del st.session_state[unique_key]
-
-        # Mostrar el selector de archivos en la barra lateral
+        # Mostrar el selector de archivos en la barra lateral SIN USAR CLAVE
+        # Esto evita completamente los problemas de StreamlitValueAssignmentNotAllowedError
         st.sidebar.markdown("### 📷 Cargar archivos para OCR")
         uploaded_file = st.sidebar.file_uploader(
             "Sube una imagen o PDF para extraer texto",
             type=["jpg", "jpeg", "png", "pdf"],
-            key=unique_key,
+            # No usamos key para evitar conflictos
             help="Formatos soportados: JPG, JPEG, PNG, PDF. Tamaño máximo: 5 MB."
         )
 
@@ -498,5 +506,18 @@ class MistralOCRApp:
 
 
 if __name__ == "__main__":
-    obj = MistralOCRApp()
-    obj.main()
+    try:
+        # Limpiar cualquier estado de sesión que pueda estar causando conflictos
+        for key in list(st.session_state.keys()):
+            if "file_uploader" in key or "ocr" in key:
+                try:
+                    del st.session_state[key]
+                except:
+                    pass
+
+        # Crear una nueva instancia de la aplicación
+        obj = MistralOCRApp()
+        obj.main()
+    except Exception as e:
+        st.error(f"Error al iniciar la aplicación: {str(e)}")
+        st.info("Intenta recargar la página o limpiar la caché del navegador.")
