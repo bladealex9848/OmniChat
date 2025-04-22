@@ -19,8 +19,14 @@ from streaming import StreamHandler
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 
-# El encabezado se moverá al método main para mantenerlo visible
-
+# Inicializar mensajes si no existen
+if "memory_chat_messages" not in st.session_state:
+    st.session_state["memory_chat_messages"] = [
+        {
+            "role": "assistant",
+            "content": "Hola, soy un asistente virtual. ¿En qué puedo ayudarte hoy?",
+        }
+    ]
 
 class ContextChatbot:
 
@@ -34,7 +40,6 @@ class ContextChatbot:
         chain = ConversationChain(llm=_self.llm, memory=memory, verbose=True)
         return chain
 
-    @utils.enable_chat_history
     def main(self):
         # Usar contenedores para organizar la interfaz
         header_container = st.container()
@@ -56,16 +61,30 @@ class ContextChatbot:
 
         chain = self.setup_chain()
 
+        # Mostrar mensajes del historial
+        for msg in st.session_state["memory_chat_messages"]:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+
         # Interfaz de chat en el contenedor de chat
         with chat_container:
             user_query = st.chat_input(placeholder="¡Hazme una pregunta!")
             if user_query:
-                utils.display_msg(user_query, "user")
+                # Añadir mensaje del usuario al historial
+                st.session_state["memory_chat_messages"].append({"role": "user", "content": user_query})
+
+                # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
+                with st.chat_message("user"):
+                    st.write(user_query)
+
+                # Generar respuesta
                 with st.chat_message("assistant"):
                     st_cb = StreamHandler(st.empty())
                     result = chain.invoke({"input": user_query}, {"callbacks": [st_cb]})
                     response = result["response"]
-                    st.session_state.messages.append(
+
+                    # Añadir respuesta al historial
+                    st.session_state["memory_chat_messages"].append(
                         {"role": "assistant", "content": response}
                     )
 
