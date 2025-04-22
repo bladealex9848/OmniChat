@@ -79,9 +79,8 @@ class MistralOCRApp:
 
     def process_image_with_mistral(self, image, prompt="Extrae todo el texto visible en esta imagen."):
         """Procesa una imagen con la API de Mistral AI para OCR"""
-        import mistralai.client
-        from mistralai.client import MistralClient
-        from mistralai.models.chat_completion import ChatMessage
+        from mistralai import MistralClient
+        from mistralai.models import ChatCompletionResponse
 
         # Convertir imagen a base64
         base64_image = self.get_image_base64(image)
@@ -89,29 +88,44 @@ class MistralOCRApp:
         # Crear cliente de Mistral
         client = MistralClient(api_key=self.mistral_api_key)
 
-        # Crear mensaje con la imagen
+        # Crear mensaje con la imagen usando la nueva estructura de la API
         messages = [
-            ChatMessage(role="user", content=[
-                {
-                    "type": "text",
-                    "text": prompt
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{base64_image}"
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{base64_image}"
+                        }
                     }
-                }
-            ])
+                ]
+            }
         ]
 
         # Llamar a la API de Mistral
         try:
+            st.info("Enviando imagen a Mistral AI para OCR...")
             chat_response = client.chat(
                 model="mistral-large-latest",
                 messages=messages,
             )
-            return chat_response.choices[0].message.content
+
+            # Extraer el contenido de la respuesta
+            if hasattr(chat_response, 'choices') and len(chat_response.choices) > 0:
+                if hasattr(chat_response.choices[0], 'message') and hasattr(chat_response.choices[0].message, 'content'):
+                    return chat_response.choices[0].message.content
+                else:
+                    # Alternativa si la estructura es diferente
+                    return chat_response.choices[0].get('message', {}).get('content', '')
+            else:
+                st.warning("La respuesta de Mistral AI no tiene el formato esperado")
+                st.write(f"Respuesta recibida: {chat_response}")
+                return str(chat_response)
         except Exception as e:
             st.error(f"Error al procesar la imagen con Mistral AI: {str(e)}")
             return None
