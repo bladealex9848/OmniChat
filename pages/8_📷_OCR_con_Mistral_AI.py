@@ -165,21 +165,115 @@ class MistralOCRApp:
         return None
 
     def process_file(self, file_info, prompt=None):
-        """Procesa el archivo según su tipo"""
+        """Procesa el archivo según su tipo con manejo de errores mejorado"""
         if not file_info:
             return None
 
-        with st.spinner("Procesando archivo..."):
-            if file_info["type"] == "image":
-                # Procesar imagen
-                image = Image.open(file_info["file"])
-                custom_prompt = prompt if prompt else "Extrae todo el texto visible en esta imagen."
-                return self.process_image_with_mistral(image, custom_prompt)
+        # Guardar el archivo en disco para procesamiento más confiable
+        try:
+            file_path = self.save_file(file_info["file"])
+            st.info(f"Archivo guardado temporalmente: {file_info['file'].name}")
+        except Exception as e:
+            st.error(f"Error al guardar el archivo: {str(e)}")
+            return None
 
-            elif file_info["type"] == "pdf":
-                # Procesar PDF
-                custom_prompt = prompt if prompt else "Extrae todo el texto visible en este documento."
-                return self.process_pdf_with_mistral(file_info["file"], custom_prompt)
+        # Procesar según el tipo de archivo
+        with st.status(f"Procesando {file_info['file'].name}...", expanded=True) as status:
+            try:
+                status.update(label="Preparando archivo para OCR...", state="running")
+
+                if file_info["type"] == "image":
+                    # Procesar imagen
+                    try:
+                        # Abrir la imagen desde el archivo guardado
+                        image = Image.open(file_path)
+                        status.update(label="Enviando imagen a Mistral AI...", state="running")
+
+                        # Usar prompt personalizado o predeterminado
+                        custom_prompt = prompt if prompt else "Extrae todo el texto visible en esta imagen."
+                        result = self.process_image_with_mistral(image, custom_prompt)
+
+                        if result:
+                            status.update(label="Imagen procesada correctamente", state="complete")
+                            return result
+                        else:
+                            status.update(label="No se pudo extraer texto de la imagen", state="error")
+                            return None
+                    except Exception as e:
+                        status.update(label=f"Error al procesar imagen: {str(e)}", state="error")
+                        st.error(f"Error detallado: {str(e)}")
+                        return None
+
+                elif file_info["type"] == "pdf":
+                    # Procesar PDF
+                    try:
+                        status.update(label="Leyendo PDF...", state="running")
+
+                        # Abrir el PDF desde el archivo guardado
+                        with open(file_path, "rb") as f:
+                            pdf_bytes = f.read()
+
+                        status.update(label="Enviando PDF a Mistral AI...", state="running")
+
+                        # Usar prompt personalizado o predeterminado
+                        custom_prompt = prompt if prompt else "Extrae todo el texto visible en este documento."
+
+                        # Usar la API de Mistral para OCR
+                        import base64
+                        import requests
+                        import json
+
+                        # Codificar PDF en base64
+                        encoded_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+                        pdf_url = f"data:application/pdf;base64,{encoded_pdf}"
+
+                        # Preparar payload para la API
+                        payload = {
+                            "model": "mistral-ocr-latest",
+                            "document": {"type": "document_url", "document_url": pdf_url},
+                        }
+
+                        # Configurar headers
+                        headers = {
+                            "Content-Type": "application/json",
+                            "Authorization": f"Bearer {self.mistral_api_key}",
+                        }
+
+                        # Hacer la solicitud a la API
+                        response = requests.post(
+                            "https://api.mistral.ai/v1/ocr",
+                            json=payload,
+                            headers=headers,
+                            timeout=90,  # Timeout ampliado para PDFs grandes
+                        )
+
+                        # Verificar respuesta
+                        if response.status_code == 200:
+                            result = response.json()
+
+                            # Extraer texto del resultado
+                            if "pages" in result and isinstance(result["pages"], list):
+                                pages = result["pages"]
+                                if pages and "markdown" in pages[0]:
+                                    text = "\n\n".join(page.get("markdown", "") for page in pages if "markdown" in page)
+                                    status.update(label="PDF procesado correctamente", state="complete")
+                                    return text
+
+                            # Si no se pudo extraer texto estructurado
+                            status.update(label="No se pudo extraer texto estructurado del PDF", state="error")
+                            return None
+                        else:
+                            error_message = f"Error en API OCR (código {response.status_code}): {response.text[:200]}"
+                            status.update(label=error_message, state="error")
+                            return None
+                    except Exception as e:
+                        status.update(label=f"Error al procesar PDF: {str(e)}", state="error")
+                        st.error(f"Error detallado: {str(e)}")
+                        return None
+            except Exception as e:
+                status.update(label=f"Error general: {str(e)}", state="error")
+                st.error(f"Error inesperado: {str(e)}")
+                return None
 
         return None
 
@@ -238,39 +332,68 @@ class MistralOCRApp:
 
         # Opciones de procesamiento si hay un archivo cargado
         if file_info:
-            # Mostrar opciones de procesamiento
-            st.subheader("Opciones de procesamiento")
-            custom_prompt = st.text_area(
-                "Instrucción personalizada para el OCR",
-                value="Extrae todo el texto visible en esta imagen o documento.",
-                help="Personaliza la instrucción para el modelo de OCR"
-            )
+            # Crear dos columnas para mostrar la vista previa y las opciones
+            col1, col2 = st.columns([2, 1])
 
-            process_button = st.button("Procesar archivo", type="primary")
+            with col1:
+                # Mostrar vista previa del archivo
+                if file_info["type"] == "image":
+                    st.image(file_info["file"], caption=f"Vista previa: {file_info['file'].name}", use_column_width=True)
+                elif file_info["type"] == "pdf":
+                    st.info(f"PDF cargado: {file_info['file'].name}")
+                    st.caption("Los PDFs no tienen vista previa, pero serán procesados correctamente.")
 
+            with col2:
+                # Mostrar opciones de procesamiento
+                st.subheader("Opciones de procesamiento")
+                custom_prompt = st.text_area(
+                    "Instrucción para el OCR",
+                    value="Extrae todo el texto visible en esta imagen o documento.",
+                    help="Personaliza la instrucción para el modelo de OCR"
+                )
+
+                process_button = st.button("Procesar archivo", type="primary", use_container_width=True)
+
+            # Botón de procesamiento y resultados
             if process_button:
-                with st.spinner(f"Procesando {file_info['file'].name}..."):
-                    # Procesar archivo
-                    extracted_text = self.process_file(file_info, custom_prompt)
+                # Procesar archivo
+                extracted_text = self.process_file(file_info, custom_prompt)
 
-                    if extracted_text:
-                        # Añadir mensaje del usuario
-                        user_message = f"He subido {file_info['file'].name} para extraer texto con la instrucción: '{custom_prompt}'"
-                        st.session_state["ocr_messages"].append({"role": "user", "content": user_message})
+                if extracted_text:
+                    # Añadir mensaje del usuario
+                    user_message = f"He subido {file_info['file'].name} para extraer texto con la instrucción: '{custom_prompt}'"
+                    st.session_state["ocr_messages"].append({"role": "user", "content": user_message})
 
-                        # Añadir respuesta del asistente
-                        st.session_state["ocr_messages"].append({"role": "assistant", "content": extracted_text})
+                    # Añadir respuesta del asistente
+                    st.session_state["ocr_messages"].append({"role": "assistant", "content": extracted_text})
 
-                        # Mostrar éxito
-                        st.success("Texto extraído correctamente")
+                    # Mostrar éxito
+                    st.success("Texto extraído correctamente")
 
-                        # Recargar la página para mostrar los nuevos mensajes
-                        st.rerun()
-                    else:
-                        st.error("No se pudo extraer texto del archivo. Intenta con otro archivo o verifica que el contenido sea legible.")
+                    # Mostrar el texto extraído en un expander
+                    with st.expander("Ver texto extraído", expanded=False):
+                        st.markdown(extracted_text)
+
+                    # Recargar la página para mostrar los nuevos mensajes
+                    st.rerun()
+                else:
+                    st.error("No se pudo extraer texto del archivo. Intenta con otro archivo o verifica que el contenido sea legible.")
         else:
             # Mostrar mensaje de ayuda cuando no hay archivos
             st.info("👆 Por favor, carga una imagen o PDF en la barra lateral para comenzar.")
+
+            # Mostrar ejemplos de uso
+            with st.expander("Ver ejemplos de uso", expanded=False):
+                st.markdown("""
+                ### Ejemplos de uso:
+
+                1. **Documentos escaneados**: Sube un PDF escaneado para extraer su contenido textual.
+                2. **Imágenes de texto**: Sube fotos de documentos, páginas de libros o carteles.
+                3. **Facturas y recibos**: Extrae información de facturas o recibos escaneados.
+                4. **Tarjetas de presentación**: Digitaliza la información de tarjetas de presentación.
+
+                Una vez extraído el texto, puedes hacer preguntas sobre su contenido usando el chat.
+                """)
 
         # 3. Campo de entrada para nuevas preguntas (al final)
         user_query = st.chat_input(placeholder="Haz una pregunta sobre el texto extraído...")
