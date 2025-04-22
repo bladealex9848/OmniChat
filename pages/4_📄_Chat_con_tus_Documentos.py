@@ -101,15 +101,10 @@ class CustomDataChatbot:
             # Crear una función para procesar con OCR sin importar el módulo completo
             try:
                 # Importar solo las funciones necesarias sin importar el módulo completo
-                import sys
-                import os
                 import base64
                 import requests
-                import json
-                import io
-                from pathlib import Path
                 from langchain_core.documents import Document
-
+                
                 # Función para obtener la API key de Mistral
                 def get_mistral_api_key_local():
                     # Intentar obtener de Streamlit secrets
@@ -120,76 +115,83 @@ class CustomDataChatbot:
                     if api_key and api_key.strip():
                         return api_key
                     return None
-
+                
                 # Función para procesar PDF con OCR
                 def process_pdf_with_ocr(api_key, pdf_data, file_name):
-                    with st.status("Procesando PDF con OCR de Mistral...", expanded=True) as status:
-                        try:
-                            # Si pdf_data es un archivo subido, convertirlo a bytes
-                            if hasattr(pdf_data, "read"):
-                                bytes_data = pdf_data.read()
-                                pdf_data.seek(0)  # Reset file pointer
+                    # Usar un contenedor normal en lugar de un status para evitar anidamiento de expanders
+                    st.write(f"Procesando {file_name} con OCR de Mistral...")
+                    progress_bar = st.progress(0, text="Iniciando procesamiento OCR...")
+                    
+                    try:
+                        # Si pdf_data es un archivo subido, convertirlo a bytes
+                        if hasattr(pdf_data, "read"):
+                            bytes_data = pdf_data.read()
+                            pdf_data.seek(0)  # Reset file pointer
+                        else:
+                            # Si ya es bytes, usarlo directamente
+                            bytes_data = pdf_data
+                        
+                        progress_bar.progress(25, text="Preparando documento...")
+                        
+                        # Codificar el PDF a base64
+                        encoded_pdf = base64.b64encode(bytes_data).decode("utf-8")
+                        pdf_url = f"data:application/pdf;base64,{encoded_pdf}"
+                        
+                        # Preparar los datos para la solicitud
+                        payload = {
+                            "model": "mistral-ocr-latest",
+                            "document": {"type": "document_url", "document_url": pdf_url},
+                        }
+                        
+                        # Configurar los headers
+                        headers = {
+                            "Content-Type": "application/json",
+                            "Authorization": f"Bearer {api_key}",
+                        }
+                        
+                        progress_bar.progress(50, text="Enviando PDF a la API...")
+                        
+                        # Hacer la solicitud a la API de Mistral con timeout
+                        response = requests.post(
+                            "https://api.mistral.ai/v1/ocr",
+                            json=payload,
+                            headers=headers,
+                            timeout=120,  # 120 segundos de timeout para PDFs grandes
+                        )
+                        
+                        progress_bar.progress(75, text="Procesando respuesta...")
+                        
+                        # Revisar si la respuesta fue exitosa
+                        if response.status_code == 200:
+                            result = response.json()
+                            progress_bar.progress(100, text="PDF procesado correctamente")
+                            
+                            # Extraer texto del resultado
+                            if "pages" in result and isinstance(result["pages"], list):
+                                pages = result["pages"]
+                                if pages and "markdown" in pages[0]:
+                                    text = "\n\n".join(page.get("markdown", "") for page in pages if "markdown" in page)
+                                    return {"text": text}
+                            elif "text" in result:
+                                return {"text": result["text"]}
                             else:
-                                # Si ya es bytes, usarlo directamente
-                                bytes_data = pdf_data
-
-                            # Codificar el PDF a base64
-                            encoded_pdf = base64.b64encode(bytes_data).decode("utf-8")
-                            pdf_url = f"data:application/pdf;base64,{encoded_pdf}"
-
-                            # Preparar los datos para la solicitud
-                            payload = {
-                                "model": "mistral-ocr-latest",
-                                "document": {"type": "document_url", "document_url": pdf_url},
-                            }
-
-                            # Configurar los headers
-                            headers = {
-                                "Content-Type": "application/json",
-                                "Authorization": f"Bearer {api_key}",
-                            }
-
-                            status.update(label="Enviando PDF a la API...")
-
-                            # Hacer la solicitud a la API de Mistral con timeout
-                            response = requests.post(
-                                "https://api.mistral.ai/v1/ocr",
-                                json=payload,
-                                headers=headers,
-                                timeout=120,  # 120 segundos de timeout para PDFs grandes
-                            )
-
-                            # Revisar si la respuesta fue exitosa
-                            if response.status_code == 200:
-                                result = response.json()
-                                status.update(label="PDF procesado correctamente", state="complete")
-
-                                # Extraer texto del resultado
-                                if "pages" in result and isinstance(result["pages"], list):
-                                    pages = result["pages"]
-                                    if pages and "markdown" in pages[0]:
-                                        text = "\n\n".join(page.get("markdown", "") for page in pages if "markdown" in page)
-                                        return {"text": text}
-                                elif "text" in result:
-                                    return {"text": result["text"]}
-                                else:
-                                    return {"error": "No se pudo extraer texto del resultado OCR"}
-                            else:
-                                error_message = f"Error en API OCR (código {response.status_code}): {response.text}"
-                                status.update(label="Error al procesar el PDF", state="error")
-                                return {"error": error_message}
-                        except Exception as e:
-                            error_message = f"Error al procesar PDF: {str(e)}"
-                            status.update(label=f"Error: {str(e)}", state="error")
+                                return {"error": "No se pudo extraer texto del resultado OCR"}
+                        else:
+                            error_message = f"Error en API OCR (código {response.status_code}): {response.text}"
+                            progress_bar.progress(100, text="Error al procesar el PDF")
                             return {"error": error_message}
-
+                    except Exception as e:
+                        error_message = f"Error al procesar PDF: {str(e)}"
+                        progress_bar.progress(100, text=f"Error: {str(e)}")
+                        return {"error": error_message}
+                
                 # Obtener la API key de Mistral
                 api_key = get_mistral_api_key_local()
-
+                
                 if not api_key:
                     st.error("Se requiere una API key de Mistral para usar OCR. Configúrala en secrets.toml.")
                     st.stop()
-
+                
                 # Procesar cada documento con OCR
                 ocr_docs = []
                 for file in uploaded_files:
@@ -197,15 +199,14 @@ class CustomDataChatbot:
                         file_path = self.save_file(file)
                         with open(file_path, "rb") as f:
                             file_bytes = f.read()
-
+                        
                         # Usar OCR para extraer texto
-                        st.info(f"Procesando {file.name} con OCR de Mistral...")
                         ocr_result = process_pdf_with_ocr(api_key, file_bytes, file.name)
-
+                        
                         if "error" in ocr_result:
                             st.error(f"Error en OCR: {ocr_result['error']}")
                             continue
-
+                            
                         # Extraer texto del resultado OCR
                         if "text" in ocr_result and ocr_result["text"]:
                             # Crear un documento con el texto extraído
@@ -217,7 +218,7 @@ class CustomDataChatbot:
                             st.success(f"Texto extraído con éxito de {file.name} usando OCR")
                     except Exception as e:
                         st.error(f"Error al procesar {file.name} con OCR: {str(e)}")
-
+                
                 # Si se obtuvieron documentos con OCR, usarlos
                 if ocr_docs:
                     # Dividir los documentos OCR
@@ -292,39 +293,38 @@ class CustomDataChatbot:
         st.write(
             "Tiene acceso a documentos personalizados y puede responder a las consultas de los usuarios refiriéndose al contenido de esos documentos"
         )
-
-        # Mostrar información del autor e instrucciones en la barra lateral
+        
+        # Mostrar información del autor en la barra lateral
         try:
             from sidebar_info import show_author_info
-
-            # Instrucciones específicas para el chat con documentos
-            instrucciones = """
-            ### 📜 Cómo usar el Chat con Documentos
-
-            1. **Sube tus documentos PDF** usando el selector de archivos en la barra lateral
+            show_author_info()
+        except ImportError:
+            st.sidebar.warning("No se pudo cargar la información del autor.")
+        
+        # Instrucciones específicas para el chat con documentos
+        with st.sidebar.expander("📜 Instrucciones de uso", expanded=True):
+            st.markdown("""
+            ### Cómo usar el Chat con Documentos
+            
+            1. **Sube tus documentos PDF** usando el selector de archivos abajo
             2. **Espera** a que se procesen los documentos
             3. **Haz preguntas** sobre el contenido de tus documentos
             4. **Revisa las fuentes** que aparecen debajo de cada respuesta
-
+            
             #### Funcionalidades
             - Puedes subir **múltiples documentos** a la vez
             - El sistema usará **OCR** automáticamente si los PDFs no contienen texto legible
             - Las respuestas incluyen **referencias a las fuentes** de donde se extrajo la información
-
+            
             #### Limitaciones
             - Documentos muy grandes pueden tardar más en procesarse
             - El OCR funciona mejor con documentos de buena calidad
-            """
-
-            show_author_info(show_instructions=True,
-                           instructions_title="📜 Instrucciones",
-                           instructions_content=instrucciones)
-        except ImportError:
-            st.sidebar.warning("No se pudo cargar la información del autor.")
-
+            """)
+        
         # Entradas del usuario en la barra lateral
+        st.sidebar.markdown("### 📜 Cargar documentos")
         uploaded_files = st.sidebar.file_uploader(
-            label="Cargar archivos PDF", type=["pdf"], accept_multiple_files=True
+            label="Selecciona archivos PDF", type=["pdf"], accept_multiple_files=True
         )
         if not uploaded_files:
             st.info(
@@ -336,12 +336,12 @@ class CustomDataChatbot:
         st.sidebar.success(f"✅ {len(uploaded_files)} archivo(s) cargado(s)")
         for file in uploaded_files:
             st.sidebar.info(f"📄 {file.name} ({round(file.size/1024, 1)} KB)")
-
+        
         # 2. Mostrar mensajes del historial (saludo inicial y conversación)
         for msg in st.session_state["doc_chat_messages"]:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
-
+        
         # 3. Campo de entrada para nuevas preguntas (al final)
         user_query = st.chat_input(
             placeholder="¡Hazme una pregunta sobre tus documentos!"
@@ -351,11 +351,11 @@ class CustomDataChatbot:
             try:
                 # Añadir mensaje del usuario al historial
                 st.session_state["doc_chat_messages"].append({"role": "user", "content": user_query})
-
+                
                 # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
                 with st.chat_message("user"):
                     st.write(user_query)
-
+                
                 # Mostrar un mensaje de procesamiento
                 with st.status(
                     "Procesando documentos y preparando respuesta...", expanded=True
@@ -364,7 +364,7 @@ class CustomDataChatbot:
                     qa_chain = self.setup_qa_chain(uploaded_files)
 
                     status.update(label="Procesando tu pregunta...", state="running")
-
+                    
                     # Generar respuesta
                     with st.chat_message("assistant"):
                         st_cb = StreamHandler(st.empty())
@@ -372,12 +372,12 @@ class CustomDataChatbot:
                             {"question": user_query}, {"callbacks": [st_cb]}
                         )
                         response = result["answer"]
-
+                        
                         # Añadir respuesta al historial
                         st.session_state["doc_chat_messages"].append(
                             {"role": "assistant", "content": response}
                         )
-
+                        
                         # Para mostrar referencias en un expander contraído
                         with st.expander("Fuentes de información", expanded=False):
                             st.markdown("### Fuentes de información")
