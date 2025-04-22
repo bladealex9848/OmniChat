@@ -36,8 +36,23 @@ except ImportError:
         get_mistral_api_key,
     )
 
-# Intentar importar langchain_huggingface para evitar errores
+# Intentar importar módulos que pueden causar problemas
 try:
     import langchain_huggingface
 except ImportError:
     print("ADVERTENCIA: No se pudo importar langchain_huggingface. Algunas funcionalidades pueden no estar disponibles.")
+
+try:
+    import langchain_openai
+except ImportError:
+    print("ADVERTENCIA: No se pudo importar langchain_openai. Algunas funcionalidades pueden no estar disponibles.")
+
+try:
+    import langchain_community
+except ImportError:
+    print("ADVERTENCIA: No se pudo importar langchain_community. Algunas funcionalidades pueden no estar disponibles.")
+
+try:
+    import langchain_core
+except ImportError:
+    print("ADVERTENCIA: No se pudo importar langchain_core. Algunas funcionalidades pueden no estar disponibles.")

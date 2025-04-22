@@ -1,20 +1,20 @@
 # Dependencias principales
-streamlit==1.44.0
-openai==1.39.0
-requests==2.31.0
-pillow==10.3.0
-pypdf==4.3.1
-pydantic>=2.8.2,<2.9.0
-httpx>=0.27.0,<0.28.0
-mistralai==1.0.1
+streamlit>=1.44.0
+openai>=1.39.0
+requests>=2.31.0
+pillow>=10.3.0
+pypdf>=4.3.1
+pydantic>=2.8.2
+httpx>=0.27.0
+mistralai>=1.0.1
 
 # Dependencias para OCR y procesamiento de documentos
-python-dotenv==1.0.1
-python-magic==0.4.27
-python-magic-bin==0.4.14; platform_system == "Windows"
-pdf2image==1.17.0
-PyMuPDF==1.24.5
-reportlab==4.1.0
+python-dotenv>=1.0.1
+python-magic>=0.4.27
+python-magic-bin>=0.4.14; platform_system == "Windows"
+pdf2image>=1.17.0
+PyMuPDF>=1.24.5
+reportlab>=4.1.0
 
 # Dependencias para LLM y procesamiento de lenguaje
 langchain>=0.2.9
@@ -28,15 +28,15 @@ fastembed>=0.6.1
 sentence-transformers>=2.6.0
 
 # Dependencias para bases de datos y almacenamiento
-SQLAlchemy==2.0.32
-pymysql==1.1.0
+SQLAlchemy>=2.0.32
+pymysql>=1.1.0
 faiss-cpu>=1.7.4
 
 # Dependencias para web scraping y búsqueda
-duckduckgo-search==6.2.6
-beautifulsoup4==4.12.3
-validators==0.33.0
+duckduckgo-search>=6.2.6
+beautifulsoup4>=4.12.3
+validators>=0.33.0
 
 # Otras dependencias útiles
-tqdm==4.66.4
-tenacity==8.5.0
+tqdm>=4.66.4
+tenacity>=8.5.0

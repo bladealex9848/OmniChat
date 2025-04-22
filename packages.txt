@@ -1,2 +1,4 @@
 pkg-config
 libtk8.6
+python3-dev
+build-essential
