@@ -36,12 +36,17 @@ except ImportError:
         "Considera actualizar a langchain-huggingface para mejor compatibilidad."
     )
 
+# Configuración de la página (debe ser la primera llamada a Streamlit)
 st.set_page_config(page_title="ChatPDF", page_icon="📄")
-st.title("Chatea con tus documentos (RAG Básico)")
-st.write(
-    "Tiene acceso a documentos personalizados y puede responder a las consultas de los usuarios refiriéndose al contenido de esos documentos"
-)
 
+# Inicializar mensajes si no existen
+if "doc_chat_messages" not in st.session_state:
+    st.session_state["doc_chat_messages"] = [
+        {
+            "role": "assistant",
+            "content": "Hola, soy un asistente virtual. ¿En qué puedo ayudarte hoy?",
+        }
+    ]
 
 class CustomDataChatbot:
 
@@ -150,9 +155,21 @@ class CustomDataChatbot:
         )
         return qa_chain
 
-    @utils.enable_chat_history
     def main(self):
-        # Entradas del usuario
+        # 1. Título y subtítulo (siempre visible en la parte superior)
+        st.title("Chatea con tus documentos (RAG Básico)")
+        st.write(
+            "Tiene acceso a documentos personalizados y puede responder a las consultas de los usuarios refiriéndose al contenido de esos documentos"
+        )
+        
+        # Mostrar información del autor en la barra lateral
+        try:
+            from sidebar_info import show_author_info
+            show_author_info()
+        except ImportError:
+            st.sidebar.warning("No se pudo cargar la información del autor.")
+        
+        # Entradas del usuario en la barra lateral
         uploaded_files = st.sidebar.file_uploader(
             label="Cargar archivos PDF", type=["pdf"], accept_multiple_files=True
         )
@@ -166,13 +183,26 @@ class CustomDataChatbot:
         st.sidebar.success(f"✅ {len(uploaded_files)} archivo(s) cargado(s)")
         for file in uploaded_files:
             st.sidebar.info(f"📄 {file.name} ({round(file.size/1024, 1)} KB)")
-
+        
+        # 2. Mostrar mensajes del historial (saludo inicial y conversación)
+        for msg in st.session_state["doc_chat_messages"]:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
+        
+        # 3. Campo de entrada para nuevas preguntas (al final)
         user_query = st.chat_input(
             placeholder="¡Hazme una pregunta sobre tus documentos!"
         )
 
         if uploaded_files and user_query:
             try:
+                # Añadir mensaje del usuario al historial
+                st.session_state["doc_chat_messages"].append({"role": "user", "content": user_query})
+                
+                # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
+                with st.chat_message("user"):
+                    st.write(user_query)
+                
                 # Mostrar un mensaje de procesamiento
                 with st.status(
                     "Procesando documentos y preparando respuesta...", expanded=True
@@ -181,32 +211,34 @@ class CustomDataChatbot:
                     qa_chain = self.setup_qa_chain(uploaded_files)
 
                     status.update(label="Procesando tu pregunta...", state="running")
-                    utils.display_msg(user_query, "user")
-
+                    
+                    # Generar respuesta
                     with st.chat_message("assistant"):
                         st_cb = StreamHandler(st.empty())
                         result = qa_chain.invoke(
                             {"question": user_query}, {"callbacks": [st_cb]}
                         )
                         response = result["answer"]
-                        st.session_state.messages.append(
+                        
+                        # Añadir respuesta al historial
+                        st.session_state["doc_chat_messages"].append(
                             {"role": "assistant", "content": response}
                         )
-
-                        # Para mostrar referencias
-                        st.markdown("---")
-                        st.markdown("### Fuentes de información")
-                        for idx, doc in enumerate(result["source_documents"], 1):
-                            try:
-                                filename = os.path.basename(doc.metadata["source"])
-                                page_num = doc.metadata["page"]
-                                ref_title = f":blue[Referencia {idx}: *{filename} - página {page_num}*]"
-                                with st.popover(ref_title):
-                                    st.caption(doc.page_content)
-                            except KeyError as e:
-                                st.warning(
-                                    f"No se pudo mostrar la referencia {idx}: Falta información en los metadatos."
-                                )
+                        
+                        # Para mostrar referencias en un expander contraído
+                        with st.expander("Fuentes de información", expanded=False):
+                            st.markdown("### Fuentes de información")
+                            for idx, doc in enumerate(result["source_documents"], 1):
+                                try:
+                                    filename = os.path.basename(doc.metadata["source"])
+                                    page_num = doc.metadata["page"]
+                                    ref_title = f":blue[Referencia {idx}: *{filename} - página {page_num}*]"
+                                    with st.popover(ref_title):
+                                        st.caption(doc.page_content)
+                                except KeyError as e:
+                                    st.warning(
+                                        f"No se pudo mostrar la referencia {idx}: Falta información en los metadatos."
+                                    )
 
                     status.update(
                         label="¡Respuesta generada con éxito!", state="complete"
