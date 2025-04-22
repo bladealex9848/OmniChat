@@ -50,10 +50,35 @@ def enable_chat_history(func):
         # Ejecutar la función decorada PRIMERO (para mostrar encabezados y manejar la lógica de la página)
         result = func(*args, **kwargs)
 
-        # DESPUÉS mostrar todos los mensajes del historial
+        # DESPUÉS mostrar todos los mensajes del historial, excepto el saludo inicial
         # Esto asegura que el título aparezca antes que los mensajes
-        for msg in st.session_state["messages"]:
-            st.chat_message(msg["role"]).write(msg["content"])
+
+        # Mostrar el saludo inicial solo si no hay otros mensajes
+        if len(st.session_state["messages"]) == 1 and st.session_state["messages"][0]["role"] == "assistant" and "Hola, soy un asistente virtual" in st.session_state["messages"][0]["content"]:
+            with st.chat_message("assistant"):
+                st.write(st.session_state["messages"][0]["content"])
+        else:
+            # Filtrar el mensaje de saludo si hay más mensajes
+            filtered_messages = [msg for msg in st.session_state["messages"]
+                               if not (msg["role"] == "assistant" and "Hola, soy un asistente virtual" in msg["content"])
+                               or len(st.session_state["messages"]) == 1]
+
+            # Mostrar los mensajes filtrados
+            for msg in filtered_messages:
+                with st.chat_message(msg["role"]):
+                    # Verificar si el mensaje contiene una cadena de pensamiento
+                    if msg["role"] == "assistant" and "---" in msg["content"]:
+                        # Separar la respuesta de la cadena de pensamiento
+                        parts = msg["content"].split("---", 1)
+                        # Mostrar solo la respuesta principal
+                        st.write(parts[0].strip())
+
+                        # Mostrar la cadena de pensamiento en un expansor contraído
+                        with st.expander("Cadena de pensamiento", expanded=False):
+                            st.markdown(parts[1].strip())
+                    else:
+                        # Mostrar el mensaje completo si no tiene cadena de pensamiento
+                        st.write(msg["content"])
 
         return result
 
