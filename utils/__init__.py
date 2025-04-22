@@ -35,3 +35,9 @@ except ImportError:
         configure_openrouter_client,
         get_mistral_api_key,
     )
+
+# Intentar importar langchain_huggingface para evitar errores
+try:
+    import langchain_huggingface
+except ImportError:
+    print("ADVERTENCIA: No se pudo importar langchain_huggingface. Algunas funcionalidades pueden no estar disponibles.")

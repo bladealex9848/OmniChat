@@ -32,7 +32,14 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain_core.documents.base import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import DocArrayInMemorySearch
-from langchain_huggingface import HuggingFaceEmbeddings
+
+# Intentar importar HuggingFaceEmbeddings con manejo de errores
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    # Fallback a embeddings de OpenAI si no está disponible HuggingFace
+    from langchain_openai import OpenAIEmbeddings as HuggingFaceEmbeddings
+    st.warning("No se pudo cargar HuggingFaceEmbeddings. Usando OpenAIEmbeddings como alternativa.")
 
 # Configuración de la página (debe ser la primera llamada a Streamlit)
 st.set_page_config(page_title="ChatWebsite", page_icon="🔗")
@@ -173,7 +180,7 @@ class ChatbotWeb:
         # 1. Título y subtítulo (siempre visible en la parte superior)
         st.title("Chatea con Sitios Web y Búsqueda")
         st.write("Permite al chatbot interactuar con el contenido de sitios web y realizar búsquedas en internet.")
-        
+
         # Inicializar la lista de sitios web si no existe
         if "websites" not in st.session_state:
             st.session_state["websites"] = []
@@ -262,18 +269,18 @@ class ChatbotWeb:
         # 3. Campo de entrada para nuevas preguntas (al final)
         placeholder = "¡Hazme una pregunta!" if self.use_search else "¡Hazme una pregunta sobre los sitios web!"
         user_query = st.chat_input(placeholder=placeholder)
-        
+
         if user_query:
             # Añadir mensaje del usuario al historial
             st.session_state["website_chat_messages"].append({"role": "user", "content": user_query})
-            
+
             # Mostrar mensaje del usuario (se mostrará en la próxima ejecución)
             with st.chat_message("user"):
                 st.write(user_query)
 
             # Crear un contenedor para mostrar el estado del procesamiento
             processing_container = st.container()
-            
+
             # Generar respuesta
             with st.chat_message("assistant"):
                 # Procesar según el modo (búsqueda web, sitios web o híbrido)
@@ -281,11 +288,11 @@ class ChatbotWeb:
                     # Modo de búsqueda web
                     with processing_container:
                         search_results = self.perform_web_search(user_query)
-                    
+
                     if search_results:
                         # Formatear resultados para mostrarlos
                         formatted_results = self.format_search_results(search_results)
-                        
+
                         # Construir prompt para el LLM con los resultados de búsqueda
                         prompt = f"""Basado en la siguiente información de búsqueda, responde a la pregunta del usuario.
 
@@ -296,7 +303,7 @@ class ChatbotWeb:
 
                         Responde de manera concisa y clara, citando las fuentes cuando sea relevante.
                         """
-                        
+
                         # Procesar la consulta en un contenedor oculto
                         with st.container():
                             # Crear un elemento vacío que no se mostrará al usuario
@@ -307,15 +314,15 @@ class ChatbotWeb:
                             response = self.llm.invoke(prompt, streaming=True, callbacks=[st_cb])
                             # Limpiar el elemento oculto
                             hidden_element.empty()
-                        
+
                         # Mostrar la respuesta una sola vez
                         st.write(response)
-                        
+
                         # Añadir respuesta al historial
                         st.session_state["website_chat_messages"].append(
                             {"role": "assistant", "content": response}
                         )
-                        
+
                         # Mostrar fuentes de información en popovers
                         st.markdown("**Fuentes de información:**")
                         for idx, result in enumerate(search_results, 1):
@@ -331,7 +338,7 @@ class ChatbotWeb:
                         st.session_state["website_chat_messages"].append(
                             {"role": "assistant", "content": response}
                         )
-                
+
                 # Modo de sitios web (usando qa_chain)
                 elif websites and qa_chain is not None:
                     # Procesar la consulta en un contenedor oculto
@@ -348,15 +355,15 @@ class ChatbotWeb:
                         response = result["answer"]
                         # Limpiar el elemento oculto
                         hidden_element.empty()
-                    
+
                     # Mostrar la respuesta una sola vez
                     st.write(response)
-                    
+
                     # Añadir respuesta al historial
                     st.session_state["website_chat_messages"].append(
                         {"role": "assistant", "content": response}
                     )
-                    
+
                     # Mostrar referencias a sitios web en popovers
                     st.markdown("**Fuentes de sitios web:**")
                     for idx, doc in enumerate(result["source_documents"], 1):
@@ -364,7 +371,7 @@ class ChatbotWeb:
                         ref_title = f":blue[Referencia {idx}: *{url}*]"
                         with st.popover(ref_title):
                             st.caption(doc.page_content)
-                
+
                 # Modo híbrido: sitios web + búsqueda
                 elif self.use_search and websites and qa_chain is not None:
                     # Primero intentar con los sitios web
@@ -381,13 +388,13 @@ class ChatbotWeb:
                         response = result["answer"]
                         # Limpiar el elemento oculto
                         hidden_element.empty()
-                    
+
                     # Si la respuesta es vaga o indica falta de información, complementar con búsqueda web
                     if "no tengo suficiente información" in response.lower() or "no puedo responder" in response.lower():
                         with processing_container:
                             st.info("Complementando con búsqueda en internet...")
                             search_results = self.perform_web_search(user_query)
-                        
+
                         if search_results:
                             formatted_results = self.format_search_results(search_results)
                             prompt = f"""Basado en la siguiente información adicional de búsqueda, mejora tu respuesta a la pregunta del usuario.
@@ -401,12 +408,12 @@ class ChatbotWeb:
 
                             Proporciona una respuesta mejorada y más completa.
                             """
-                            
+
                             # Procesar en un contenedor oculto
                             with st.container():
                                 improved_response = self.llm.invoke(prompt)
                                 response = improved_response
-                            
+
                             # Mostrar fuentes de búsqueda web
                             st.markdown("**Fuentes adicionales de internet:**")
                             for idx, result in enumerate(search_results, 1):
@@ -415,15 +422,15 @@ class ChatbotWeb:
                                 with st.popover(ref_title):
                                     st.markdown(f"**Extracto:** {result['snippet']}")
                                     st.markdown(f"**URL:** [{result['link']}]({result['link']})")
-                    
+
                     # Mostrar la respuesta una sola vez
                     st.write(response)
-                    
+
                     # Añadir respuesta al historial
                     st.session_state["website_chat_messages"].append(
                         {"role": "assistant", "content": response}
                     )
-                    
+
                     # Mostrar referencias a sitios web
                     st.markdown("**Fuentes de sitios web:**")
                     for idx, doc in enumerate(result["source_documents"], 1):
@@ -431,7 +438,7 @@ class ChatbotWeb:
                         ref_title = f":blue[Referencia {idx}: *{url}*]"
                         with st.popover(ref_title):
                             st.caption(doc.page_content)
-            
+
             # Limpiar el contenedor de procesamiento
             processing_container.empty()
 
