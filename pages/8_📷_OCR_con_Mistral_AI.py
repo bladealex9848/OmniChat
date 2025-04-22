@@ -127,7 +127,7 @@ class MistralOCRApp:
     def display_file_uploader(self):
         """Muestra el selector de archivos en la barra lateral"""
         # Usar un nombre de key único para evitar conflictos
-        unique_key = f"ocr_file_uploader_{id(self)}"
+        unique_key = "ocr_file_uploader"
 
         # Mostrar el selector de archivos en la barra lateral
         st.sidebar.markdown("### 📷 Cargar archivos para OCR")
@@ -150,14 +150,30 @@ class MistralOCRApp:
 
             # Determinar el tipo de archivo
             file_type = uploaded_file.type
-            if file_type.startswith("image"):
-                # Mostrar vista previa de la imagen en el área principal
-                st.image(uploaded_file, caption=f"Vista previa: {uploaded_file.name}", use_column_width=True)
+            st.sidebar.write(f"Tipo de archivo detectado: {file_type}")
+
+            # Verificar si el tipo de archivo es None o vacío (puede ocurrir en algunos navegadores)
+            if not file_type:
+                # Intentar determinar el tipo por la extensión
+                if uploaded_file.name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    file_type = "image/jpeg"
+                    st.sidebar.write("Tipo determinado por extensión: imagen")
+                elif uploaded_file.name.lower().endswith('.pdf'):
+                    file_type = "application/pdf"
+                    st.sidebar.write("Tipo determinado por extensión: PDF")
+
+            if file_type and (file_type.startswith("image") or
+                             uploaded_file.name.lower().endswith(('.jpg', '.jpeg', '.png'))):
+                # Es una imagen
                 return {"type": "image", "file": uploaded_file}
-            elif file_type == "application/pdf":
-                # Mostrar información del PDF en el área principal
-                st.info(f"PDF cargado: {uploaded_file.name}")
+            elif file_type and (file_type == "application/pdf" or
+                                uploaded_file.name.lower().endswith('.pdf')):
+                # Es un PDF
                 return {"type": "pdf", "file": uploaded_file}
+            else:
+                # Tipo no reconocido
+                st.sidebar.error(f"Tipo de archivo no reconocido: {file_type}")
+                return None
         else:
             # Mostrar mensaje de ayuda cuando no hay archivos
             st.sidebar.info("👆 Sube una imagen o PDF para comenzar")
@@ -167,7 +183,21 @@ class MistralOCRApp:
     def process_file(self, file_info, prompt=None):
         """Procesa el archivo según su tipo con manejo de errores mejorado"""
         if not file_info:
+            st.error("No se ha proporcionado información del archivo")
             return None
+
+        # Verificar que el archivo exista
+        if "file" not in file_info or file_info["file"] is None:
+            st.error("El archivo no está disponible")
+            return None
+
+        # Verificar que el tipo esté definido
+        if "type" not in file_info or not file_info["type"]:
+            st.error("No se ha podido determinar el tipo de archivo")
+            return None
+
+        # Mostrar información de depuración
+        st.write(f"Procesando archivo: {file_info['file'].name} de tipo {file_info['type']}")
 
         # Guardar el archivo en disco para procesamiento más confiable
         try:
@@ -309,9 +339,21 @@ class MistralOCRApp:
             """)
 
         # Mostrar selector de archivos en la barra lateral
+        st.sidebar.markdown("---")
         file_info = self.display_file_uploader()
 
+        # Depuración: Mostrar información sobre el archivo cargado
+        if file_info:
+            st.sidebar.markdown("---")
+            st.sidebar.subheader("Información del archivo")
+            st.sidebar.json({
+                "nombre": file_info["file"].name,
+                "tipo": file_info["type"],
+                "tamaño": f"{round(file_info['file'].size/1024, 1)} KB"
+            })
+
         # Mostrar información del autor en la barra lateral (al final)
+        st.sidebar.markdown("---")
         try:
             from sidebar_info import show_author_info
             show_author_info()
