@@ -19,18 +19,7 @@ from streaming import StreamHandler
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 
-# Encabezado
-st.header("Chatbot con Memoria")
-st.write(
-    "Mejorando las interacciones del chatbot a través de la memoria de conversación"
-)
-
-# Mostrar información del autor
-try:
-    from sidebar_info import show_author_info
-    show_author_info()
-except ImportError:
-    st.sidebar.warning("No se pudo cargar la información del autor.")
+# El encabezado se moverá al método main para mantenerlo visible
 
 
 class ContextChatbot:
@@ -47,17 +36,38 @@ class ContextChatbot:
 
     @utils.enable_chat_history
     def main(self):
+        # Usar contenedores para organizar la interfaz
+        header_container = st.container()
+        chat_container = st.container()
+
+        # Contenedor del encabezado (siempre visible en la parte superior)
+        with header_container:
+            st.header("Chatbot con Memoria")
+            st.write(
+                "Mejorando las interacciones del chatbot a través de la memoria de conversación"
+            )
+
+        # Mostrar información del autor
+        try:
+            from sidebar_info import show_author_info
+            show_author_info()
+        except ImportError:
+            st.sidebar.warning("No se pudo cargar la información del autor.")
+
         chain = self.setup_chain()
-        user_query = st.chat_input(placeholder="¡Hazme una pregunta!")
-        if user_query:
-            utils.display_msg(user_query, "user")
-            with st.chat_message("assistant"):
-                st_cb = StreamHandler(st.empty())
-                result = chain.invoke({"input": user_query}, {"callbacks": [st_cb]})
-                response = result["response"]
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": response}
-                )
+
+        # Interfaz de chat en el contenedor de chat
+        with chat_container:
+            user_query = st.chat_input(placeholder="¡Hazme una pregunta!")
+            if user_query:
+                utils.display_msg(user_query, "user")
+                with st.chat_message("assistant"):
+                    st_cb = StreamHandler(st.empty())
+                    result = chain.invoke({"input": user_query}, {"callbacks": [st_cb]})
+                    response = result["response"]
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response}
+                    )
 
 
 if __name__ == "__main__":
