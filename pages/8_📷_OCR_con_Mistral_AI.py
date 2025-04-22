@@ -14,14 +14,22 @@ from streaming import StreamHandler
 # Configuración de la página (debe ser la primera llamada a Streamlit)
 st.set_page_config(page_title="OCR con Mistral AI", page_icon="📷")
 
-# Inicializar mensajes si no existen
-if "ocr_messages" not in st.session_state:
-    st.session_state["ocr_messages"] = [
+# Inicializar mensajes si no existen - usando un nombre más específico para evitar conflictos
+if "mistral_ocr_messages" not in st.session_state:
+    st.session_state["mistral_ocr_messages"] = [
         {
             "role": "assistant",
             "content": "Hola, soy un asistente de OCR. Puedo extraer texto de imágenes y documentos PDF. Sube un archivo para comenzar.",
         }
     ]
+
+# Limpiar cualquier estado de sesión conflictivo
+if "ocr_messages" in st.session_state:
+    # Migrar mensajes antiguos si existen
+    if "mistral_ocr_messages" in st.session_state and len(st.session_state["mistral_ocr_messages"]) <= 1:
+        st.session_state["mistral_ocr_messages"] = st.session_state["ocr_messages"]
+    # Eliminar la clave antigua
+    del st.session_state["ocr_messages"]
 
 class MistralOCRApp:
     def __init__(self):
@@ -126,8 +134,13 @@ class MistralOCRApp:
 
     def display_file_uploader(self):
         """Muestra el selector de archivos en la barra lateral"""
-        # Usar un nombre de key único para evitar conflictos
-        unique_key = "ocr_file_uploader"
+        # Usar un nombre de key verdaderamente único para evitar conflictos
+        # Generamos una clave que incluya el nombre de la página para evitar conflictos entre páginas
+        unique_key = "mistral_ocr_file_uploader_8"
+
+        # Limpiar el estado de sesión si hay un error previo
+        if unique_key in st.session_state and isinstance(st.session_state[unique_key], Exception):
+            del st.session_state[unique_key]
 
         # Mostrar el selector de archivos en la barra lateral
         st.sidebar.markdown("### 📷 Cargar archivos para OCR")
@@ -362,7 +375,7 @@ class MistralOCRApp:
 
         # 2. Mostrar mensajes del historial (saludo inicial y conversación)
         # Implementación manual del historial de chat
-        for i, msg in enumerate(st.session_state["ocr_messages"]):
+        for i, msg in enumerate(st.session_state["mistral_ocr_messages"]):
             with st.chat_message(msg["role"]):
                 # Si es el último mensaje del asistente y contiene texto extraído, mostrarlo en un expander
                 if (msg["role"] == "assistant" and i > 0 and
@@ -404,10 +417,10 @@ class MistralOCRApp:
                 if extracted_text:
                     # Añadir mensaje del usuario
                     user_message = f"He subido {file_info['file'].name} para extraer texto con la instrucción: '{custom_prompt}'"
-                    st.session_state["ocr_messages"].append({"role": "user", "content": user_message})
+                    st.session_state["mistral_ocr_messages"].append({"role": "user", "content": user_message})
 
                     # Añadir respuesta del asistente
-                    st.session_state["ocr_messages"].append({"role": "assistant", "content": extracted_text})
+                    st.session_state["mistral_ocr_messages"].append({"role": "assistant", "content": extracted_text})
 
                     # Mostrar éxito
                     st.success("Texto extraído correctamente")
@@ -442,7 +455,7 @@ class MistralOCRApp:
 
         if user_query:
             # Añadir mensaje del usuario al historial
-            st.session_state["ocr_messages"].append({"role": "user", "content": user_query})
+            st.session_state["mistral_ocr_messages"].append({"role": "user", "content": user_query})
 
             # Mostrar mensaje del usuario
             with st.chat_message("user"):
@@ -452,7 +465,7 @@ class MistralOCRApp:
             with st.chat_message("assistant"):
                 # Obtener el último texto extraído (si existe)
                 extracted_text = None
-                for msg in reversed(st.session_state["ocr_messages"]):
+                for msg in reversed(st.session_state["mistral_ocr_messages"]):
                     if msg["role"] == "assistant" and ("PÁGINA" in msg["content"] or "Extrae todo el texto" in msg["content"]):
                         extracted_text = msg["content"]
                         break
@@ -481,7 +494,7 @@ class MistralOCRApp:
                     response = self.llm.invoke(prompt, streaming=True, callbacks=[st_cb])
 
                 # Añadir respuesta al historial
-                st.session_state["ocr_messages"].append({"role": "assistant", "content": response})
+                st.session_state["mistral_ocr_messages"].append({"role": "assistant", "content": response})
 
 
 if __name__ == "__main__":
