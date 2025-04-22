@@ -1,0 +1,23 @@
+[global]
+# Configuración global para Streamlit
+developmentMode = false
+
+[theme]
+primaryColor = "#1976D2"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+
+[server]
+maxUploadSize = 50
+enableXsrfProtection = true
+enableCORS = true
+enableStaticServing = true
+
+[browser]
+gatherUsageStats = false
+
+[environment]
+# Variables de entorno para Streamlit Cloud
+IS_STREAMLIT_CLOUD = true

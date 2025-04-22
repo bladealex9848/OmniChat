@@ -1,10 +1,37 @@
-# Este archivo permite que Python reconozca el directorio utils como un paquete
+"""Módulo de utilidades para OmniChat.
+Detecta automáticamente si estamos en Streamlit Cloud o en local."""
 
-# Importar funciones de chat_utils para que estén disponibles directamente desde utils
+import os
+import sys
+import importlib.util
+
+# Importar funciones comunes
 from .chat_utils import enable_chat_history, display_msg, sync_st_session
-
-# Importar funciones de llm_utils para que estén disponibles directamente desde utils
-from .llm_utils import configure_llm, configure_openrouter_client, get_mistral_api_key
-
-# Importar funciones de page_utils para que estén disponibles directamente desde utils
 from .page_utils import setup_page
+
+# Detectar si estamos en Streamlit Cloud
+is_streamlit_cloud = os.environ.get('IS_STREAMLIT_CLOUD') == 'true'
+
+# Importar la versión correcta de las utilidades de LLM
+try:
+    if is_streamlit_cloud:
+        # Versión para Streamlit Cloud
+        from .llm_utils_cloud import (
+            configure_llm,
+            configure_openrouter_client,
+            get_mistral_api_key,
+        )
+    else:
+        # Versión local
+        from .llm_utils import (
+            configure_llm,
+            configure_openrouter_client,
+            get_mistral_api_key,
+        )
+except ImportError:
+    # Si no existe llm_utils_cloud.py, usar llm_utils.py
+    from .llm_utils import (
+        configure_llm,
+        configure_openrouter_client,
+        get_mistral_api_key,
+    )
