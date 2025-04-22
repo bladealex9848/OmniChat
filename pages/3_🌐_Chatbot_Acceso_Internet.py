@@ -30,7 +30,7 @@ from custom_callbacks import CustomStreamlitCallbackHandler
 class InternetChatbot:
     def __init__(self):
         utils.sync_st_session()
-        self.llm = utils.configure_llm()
+        self.llm = None
 
     def setup_agent(self):
         # Crear una función de búsqueda que utiliza perform_web_search y format_search_results

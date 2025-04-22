@@ -25,7 +25,7 @@ class BasicChatbot:
 
     def __init__(self):
         utils.sync_st_session()
-        self.llm = utils.configure_llm()
+        self.llm = None
 
     def setup_chain(self):
         chain = ConversationChain(llm=self.llm, verbose=True)
