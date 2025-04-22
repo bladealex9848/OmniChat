@@ -44,7 +44,7 @@ class ChatbotWeb:
 
     def __init__(self):
         utils.sync_st_session()
-        self.llm = utils.configure_llm()
+        self.llm = None
         self.use_search = False  # Por defecto, no usar búsqueda web
 
     def scrape_website(self, url):
@@ -168,6 +168,10 @@ class ChatbotWeb:
         if "websites" not in st.session_state:
             st.session_state["websites"] = []
 
+        # Primero configurar el LLM en la barra lateral
+        st.sidebar.markdown("### 🤖 Selecciona el modelo")
+        self.llm = utils.configure_llm(key_suffix="_sidebar")
+
         # Opción para habilitar/deshabilitar búsqueda web
         st.sidebar.markdown("### Opciones de búsqueda")
         self.use_search = st.sidebar.checkbox(
@@ -210,6 +214,13 @@ class ChatbotWeb:
 
         websites = list(set(st.session_state["websites"]))
 
+        # Mostrar información del autor en la barra lateral (al final)
+        try:
+            from sidebar_info import show_author_info
+            show_author_info()
+        except ImportError:
+            st.sidebar.warning("No se pudo cargar la información del autor.")
+
         # Verificar si hay sitios web o si la búsqueda está habilitada
         if not websites and not self.use_search:
             st.error(
@@ -231,133 +242,133 @@ class ChatbotWeb:
             qa_chain = None
             st.info("Modo de búsqueda en internet activado. No se han añadido sitios web.")
 
-            # Cambiar el placeholder según el modo
-            placeholder = "¡Hazme una pregunta!" if self.use_search else "¡Hazme una pregunta sobre los sitios web!"
+        # Cambiar el placeholder según el modo
+        placeholder = "¡Hazme una pregunta!" if self.use_search else "¡Hazme una pregunta sobre los sitios web!"
 
-            user_query = st.chat_input(placeholder=placeholder)
-            if user_query:
-                utils.display_msg(user_query, "user")
+        user_query = st.chat_input(placeholder=placeholder)
+        if user_query:
+            utils.display_msg(user_query, "user")
 
-                # Modo de búsqueda web
-                if self.use_search and (not websites or qa_chain is None):
-                    # Realizar búsqueda web
-                    search_results = self.perform_web_search(user_query)
+            # Modo de búsqueda web
+            if self.use_search and (not websites or qa_chain is None):
+                # Realizar búsqueda web
+                search_results = self.perform_web_search(user_query)
 
-                    if search_results:
-                        # Formatear resultados para mostrarlos
-                        formatted_results = self.format_search_results(search_results)
+                if search_results:
+                    # Formatear resultados para mostrarlos
+                    formatted_results = self.format_search_results(search_results)
 
-                        # Construir prompt para el LLM con los resultados de búsqueda
-                        prompt = f"""Basado en la siguiente información de búsqueda, responde a la pregunta del usuario.
+                    # Construir prompt para el LLM con los resultados de búsqueda
+                    prompt = f"""Basado en la siguiente información de búsqueda, responde a la pregunta del usuario.
 
-                        Pregunta: {user_query}
+                    Pregunta: {user_query}
 
-                        Información de búsqueda:
-                        {formatted_results}
+                    Información de búsqueda:
+                    {formatted_results}
 
-                        Responde de manera concisa y clara, citando las fuentes cuando sea relevante.
-                        """
+                    Responde de manera concisa y clara, citando las fuentes cuando sea relevante.
+                    """
 
-                        # Generar respuesta con el LLM
-                        with st.chat_message("assistant"):
-                            st_cb = StreamHandler(st.empty())
-                            response = self.llm.invoke(prompt, streaming=True, callbacks=[st_cb])
-                            st.session_state.messages.append(
-                                {"role": "assistant", "content": response}
-                            )
+                    # Generar respuesta con el LLM
+                    with st.chat_message("assistant"):
+                        st_cb = StreamHandler(st.empty())
+                        response = self.llm.invoke(prompt, streaming=True, callbacks=[st_cb])
+                        st.session_state.messages.append(
+                            {"role": "assistant", "content": response}
+                        )
 
-                            # Mostrar fuentes de información
+                        # Mostrar fuentes de información
+                        st.markdown("---")
+                        st.markdown("### Fuentes de información")
+                        for idx, result in enumerate(search_results, 1):
+                            service = result.get("service", "Búsqueda web")
+                            ref_title = f":blue[Fuente {idx}: *{result['title']}* ({service})]"
+                            with st.expander(ref_title):
+                                st.markdown(f"**Extracto:** {result['snippet']}")
+                                st.markdown(f"**URL:** [{result['link']}]({result['link']})")
+                else:
+                    # Si no hay resultados de búsqueda
+                    with st.chat_message("assistant"):
+                        st.write("Lo siento, no pude encontrar información relevante para tu pregunta. Por favor, intenta reformular tu consulta o añade sitios web específicos para obtener mejores resultados.")
+                        st.session_state.messages.append(
+                            {"role": "assistant", "content": "Lo siento, no pude encontrar información relevante para tu pregunta. Por favor, intenta reformular tu consulta o añade sitios web específicos para obtener mejores resultados."}
+                        )
+
+            # Modo de sitios web (usando qa_chain)
+            elif websites and qa_chain is not None:
+                with st.chat_message("assistant"):
+                    st_cb = StreamHandler(st.empty())
+                    result = qa_chain.invoke(
+                        {"question": user_query}, {"callbacks": [st_cb]}
+                    )
+                    response = result["answer"]
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response}
+                    )
+
+                    # Mostrar referencias a sitios web
+                    st.markdown("---")
+                    st.markdown("### Fuentes de sitios web")
+                    for idx, doc in enumerate(result["source_documents"], 1):
+                        url = doc.metadata["source"]
+                        ref_title = f":blue[Referencia {idx}: *{url}*]"
+                        with st.expander(ref_title):
+                            st.write(doc.page_content)
+
+            # Modo híbrido: sitios web + búsqueda
+            elif self.use_search and websites and qa_chain is not None:
+                # Primero intentar con los sitios web
+                with st.chat_message("assistant"):
+                    st_cb = StreamHandler(st.empty())
+                    result = qa_chain.invoke(
+                        {"question": user_query}, {"callbacks": [st_cb]}
+                    )
+                    response = result["answer"]
+
+                    # Si la respuesta es vaga o indica falta de información, complementar con búsqueda web
+                    if "no tengo suficiente información" in response.lower() or "no puedo responder" in response.lower():
+                        st.info("Complementando con búsqueda en internet...")
+                        search_results = self.perform_web_search(user_query)
+
+                        if search_results:
+                            formatted_results = self.format_search_results(search_results)
+                            prompt = f"""Basado en la siguiente información adicional de búsqueda, mejora tu respuesta a la pregunta del usuario.
+
+                            Pregunta: {user_query}
+
+                            Tu respuesta inicial: {response}
+
+                            Información adicional de búsqueda:
+                            {formatted_results}
+
+                            Proporciona una respuesta mejorada y más completa.
+                            """
+
+                            improved_response = self.llm.invoke(prompt)
+                            response = improved_response
+
+                            # Mostrar fuentes de búsqueda web
                             st.markdown("---")
-                            st.markdown("### Fuentes de información")
+                            st.markdown("### Fuentes adicionales de internet")
                             for idx, result in enumerate(search_results, 1):
                                 service = result.get("service", "Búsqueda web")
-                                ref_title = f":blue[Fuente {idx}: *{result['title']}* ({service})]"
+                                ref_title = f":blue[Fuente adicional {idx}: *{result['title']}* ({service})]"
                                 with st.expander(ref_title):
                                     st.markdown(f"**Extracto:** {result['snippet']}")
                                     st.markdown(f"**URL:** [{result['link']}]({result['link']})")
-                    else:
-                        # Si no hay resultados de búsqueda
-                        with st.chat_message("assistant"):
-                            st.write("Lo siento, no pude encontrar información relevante para tu pregunta. Por favor, intenta reformular tu consulta o añade sitios web específicos para obtener mejores resultados.")
-                            st.session_state.messages.append(
-                                {"role": "assistant", "content": "Lo siento, no pude encontrar información relevante para tu pregunta. Por favor, intenta reformular tu consulta o añade sitios web específicos para obtener mejores resultados."}
-                            )
 
-                # Modo de sitios web (usando qa_chain)
-                elif websites and qa_chain is not None:
-                    with st.chat_message("assistant"):
-                        st_cb = StreamHandler(st.empty())
-                        result = qa_chain.invoke(
-                            {"question": user_query}, {"callbacks": [st_cb]}
-                        )
-                        response = result["answer"]
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": response}
-                        )
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response}
+                    )
 
-                        # Mostrar referencias a sitios web
-                        st.markdown("---")
-                        st.markdown("### Fuentes de sitios web")
-                        for idx, doc in enumerate(result["source_documents"], 1):
-                            url = doc.metadata["source"]
-                            ref_title = f":blue[Referencia {idx}: *{url}*]"
-                            with st.expander(ref_title):
-                                st.write(doc.page_content)
-
-                # Modo híbrido: sitios web + búsqueda
-                elif self.use_search and websites and qa_chain is not None:
-                    # Primero intentar con los sitios web
-                    with st.chat_message("assistant"):
-                        st_cb = StreamHandler(st.empty())
-                        result = qa_chain.invoke(
-                            {"question": user_query}, {"callbacks": [st_cb]}
-                        )
-                        response = result["answer"]
-
-                        # Si la respuesta es vaga o indica falta de información, complementar con búsqueda web
-                        if "no tengo suficiente información" in response.lower() or "no puedo responder" in response.lower():
-                            st.info("Complementando con búsqueda en internet...")
-                            search_results = self.perform_web_search(user_query)
-
-                            if search_results:
-                                formatted_results = self.format_search_results(search_results)
-                                prompt = f"""Basado en la siguiente información adicional de búsqueda, mejora tu respuesta a la pregunta del usuario.
-
-                                Pregunta: {user_query}
-
-                                Tu respuesta inicial: {response}
-
-                                Información adicional de búsqueda:
-                                {formatted_results}
-
-                                Proporciona una respuesta mejorada y más completa.
-                                """
-
-                                improved_response = self.llm.invoke(prompt)
-                                response = improved_response
-
-                                # Mostrar fuentes de búsqueda web
-                                st.markdown("---")
-                                st.markdown("### Fuentes adicionales de internet")
-                                for idx, result in enumerate(search_results, 1):
-                                    service = result.get("service", "Búsqueda web")
-                                    ref_title = f":blue[Fuente adicional {idx}: *{result['title']}* ({service})]"
-                                    with st.expander(ref_title):
-                                        st.markdown(f"**Extracto:** {result['snippet']}")
-                                        st.markdown(f"**URL:** [{result['link']}]({result['link']})")
-
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": response}
-                        )
-
-                        # Mostrar referencias a sitios web
-                        st.markdown("---")
-                        st.markdown("### Fuentes de sitios web")
-                        for idx, doc in enumerate(result["source_documents"], 1):
-                            url = doc.metadata["source"]
-                            ref_title = f":blue[Referencia {idx}: *{url}*]"
-                            with st.expander(ref_title):
-                                st.write(doc.page_content)
+                    # Mostrar referencias a sitios web
+                    st.markdown("---")
+                    st.markdown("### Fuentes de sitios web")
+                    for idx, doc in enumerate(result["source_documents"], 1):
+                        url = doc.metadata["source"]
+                        ref_title = f":blue[Referencia {idx}: *{url}*]"
+                        with st.expander(ref_title):
+                            st.write(doc.page_content)
 
 
 if __name__ == "__main__":

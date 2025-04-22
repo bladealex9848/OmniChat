@@ -289,12 +289,19 @@ class MultimodalChatbot:
 
     @utils.enable_chat_history
     def main(self):
-        # Área para cargar imágenes
+        # Primero configurar el área para cargar imágenes
         uploaded_file = st.sidebar.file_uploader(
             "Sube una imagen para analizar",
             type=["jpg", "jpeg", "png"],
             help="Sube una imagen para que el modelo la analice",
         )
+
+        # Mostrar información del autor en la barra lateral (al final)
+        try:
+            from sidebar_info import show_author_info
+            show_author_info()
+        except ImportError:
+            st.sidebar.warning("No se pudo cargar la información del autor.")
 
         # Mostrar la imagen si se ha cargado
         if uploaded_file:
