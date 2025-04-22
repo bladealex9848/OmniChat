@@ -215,11 +215,29 @@ class InternetChatbot:
                         thought_chain.append(f"Error: {str(e)}")
                         thought_chain.append("### Usando búsqueda directa como alternativa")
 
-                        # Buscar información
+                        # Buscar información con contexto
                         status.write("Usando búsqueda directa como alternativa...")
                         thought_chain.append("Usando búsqueda directa como alternativa...")
 
-                        search_results = perform_web_search(user_query)
+                        # Mejorar la consulta con contexto si es una pregunta de seguimiento
+                        enhanced_query = user_query
+                        if len(st.session_state.messages) > 2:
+                            # Buscar referencias a "su", "el", "la", "este", "esta", etc. que indiquen una pregunta de seguimiento
+                            follow_up_indicators = ["su ", "el ", "la ", "los ", "las ", "este ", "esta ", "estos ", "estas ", "ese ", "esa ", "esos ", "esas "]
+
+                            if any(indicator in user_query.lower() for indicator in follow_up_indicators) or len(user_query.split()) < 5:
+                                # Es probablemente una pregunta de seguimiento, añadir contexto
+                                last_msg = st.session_state.messages[-2]  # El mensaje anterior al actual
+                                if last_msg["role"] == "assistant":
+                                    content = last_msg["content"]
+                                    if "---" in content:
+                                        content = content.split("---")[0].strip()
+
+                                    # Crear una consulta mejorada con el contexto
+                                    enhanced_query = f"{content} {user_query}"
+                                    thought_chain.append(f"Consulta mejorada con contexto: {enhanced_query}")
+
+                        search_results = perform_web_search(enhanced_query)
                         raw_search_results = format_search_results(search_results) if search_results else "No se encontraron resultados para la consulta."
 
                         # Mostrar resultados de búsqueda en el indicador de carga
@@ -293,15 +311,8 @@ class InternetChatbot:
                 # Añadir la respuesta completa al historial de mensajes
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-                # Mostrar la respuesta con la cadena de pensamiento
-                with st.chat_message("assistant"):
-                    # Mostrar la respuesta principal
-                    st.write(response)
-
-                    # Mostrar la cadena de pensamiento en un expansor (contraído por defecto)
-                    with st.expander("Cadena de pensamiento", expanded=False):
-                        for thought in st.session_state["thought_chains"].get(question_id, ["No hay cadena de pensamiento disponible"]):
-                            st.markdown(thought)
+                # No necesitamos mostrar la respuesta aquí, ya que el decorador enable_chat_history
+                # se encargará de mostrar todos los mensajes con sus cadenas de pensamiento
 
                 # Recargar la página para mostrar el historial actualizado
                 st.rerun()
